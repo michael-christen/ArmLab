@@ -163,7 +163,7 @@ LDFLAGS_LIBCAM:=$(LIB_PATH)/libcam.a \
 				$(LDFLAGS_JPEG) $(LDFLAGS_DC1394)
 
 # imagesource
-LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a
+LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a -ldc1394 -lc -lpng -lusb-1.0
 
 %.o: %.c %.h
 	@echo "    [$@]"

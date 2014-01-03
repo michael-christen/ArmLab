@@ -26,6 +26,8 @@ typedef struct
 {
     int running;
 
+    char *url;
+
     vx_application_t app;
 
     vx_world_t *world;  // Where vx objects are live
@@ -97,9 +99,46 @@ void* render_loop(void *data)
     int fps = 60;
     state_t *state = data;
 
+    // Set up the imagesource
+    image_source_t *isrc = image_source_open(state->url);
+
+    if (isrc == NULL) {
+        printf("Error opening device.\n");
+    } else {
+        // Print out possible formats
+        for (int i = 0; i < isrc->num_formats(isrc); i++) {
+            image_source_format_t *ifmt = isrc->get_format(isrc, i);
+            printf("%3d: %4d x %4d (%s)\n", i, ifmt->width, ifmt->height, ifmt->format);
+        }
+        isrc->start(isrc);
+    }
+
     // Continue running until we are signaled otherwise. This happens
     // when the window is closed/Ctrl+C is received.
     while (state->running) {
+
+        // Get the most recent camera frame, if applicable
+        if (isrc != NULL) {
+            frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
+            printf("Getting frame...\n");
+            int res = isrc->get_frame(isrc, frmd);
+            printf("Got frame...\n");
+            if (res < 0) {
+                printf("get_frame fail: %d\n", res);
+            } else {
+                // Handle frame
+                // XXX formats to vxo_image include GL_RGB and GL_RGBA
+                image_source_format_t *fmt = isrc->get_format(isrc, isrc->get_current_format(isrc));
+                vx_resc_t *buf = vx_resc_copyub(frmd->data, frmd->datalen);
+                vx_object_t *vim = vxo_image(buf, fmt->width, fmt->height, GL_RGB, VXO_IMAGE_FLIPY);
+
+                vx_buffer_add_back(vx_world_get_buffer(state->world, "image"), vim);
+                vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
+            }
+
+            fflush(stdout);
+            isrc->release_frame(isrc, frmd);
+        }
         // Example rendering
         double rad = (vx_mtime() % 5000) * 2 * M_PI / 5e3;   // [0,2PI]
         double osc = ((vx_mtime() % 5000) / 5e3) * 2 - 1;    // [-1, 1]
@@ -138,6 +177,9 @@ void* render_loop(void *data)
         usleep(1000000/fps);
     }
 
+    if (isrc != NULL)
+        isrc->stop(isrc);
+
     return NULL;
 }
 
@@ -164,6 +206,26 @@ int main(int argc, char **argv)
     vx_global_init();
 
     state_t *state = state_create();
+
+    // Set up the imagesource
+    if (strncmp(getopt_get_string(gopt, "url"), "", 1)) {
+        state->url = getopt_get_string(gopt, "url");
+    } else {
+        // No URL specified. Show all available and then
+        // use the first
+
+        char **urls = image_source_enumerate();
+        printf("Cameras:\n");
+        for (int i = 0; urls[i] != NULL; i++)
+            printf("  %3d: %s\n", i, urls[i]);
+
+        if (urls[0]==NULL) {
+            printf("Found no cameras.\n");
+            return -1;
+        }
+
+        state->url = urls[0];
+    }
 
     // PNM/Drawing stuff XXX
 

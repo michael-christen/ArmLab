@@ -1,7 +1,9 @@
 include ../common.mk
 
 CC = gcc -c
-CFLAGS = $(CFLAGS_COMMON) -Wall -g -std=gnu99 -fno-omit-frame-pointer -fno-stack-protector -D_REENTRANT -fPIC -shared -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wno-unused-parameter -Wno-unused-variable -Wno-format-zero-length -O0
+#CFLAGS = $(CFLAGS_COMMON) -Wall -g -std=gnu99 -fno-omit-frame-pointer -fno-stack-protector -D_REENTRANT -fPIC -shared -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wno-unused-parameter -Wno-unused-variable -Wno-format-zero-length -O0
+CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_STD)
+LDFLAGS = $(LDFLAGS_COMMON)
 
 IMAGESOURCE_OBJS = image_source.o image_source_v4l2.o image_source_dc1394.o url_parser.o image_source_islog.o image_source_pgusb.o image_source_filedir.o
 
@@ -56,4 +58,4 @@ clean:
 DC1394_INCLUDES = -I/usr/local/include/
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(DC1394_INCLUDES) $<
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DC1394_INCLUDES) $<

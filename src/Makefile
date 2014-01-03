@@ -1,7 +1,7 @@
 # Only add your directories to this folder if you are 100% sure that
 # it will always compile without warnings.
 #SUBDIRS = common lcmtypes sick hokuyo gps18 spacenav kvh ublox vx vx/gtk
-SUBDIRS = common imagesource vx vx/gtk
+SUBDIRS = common imagesource vx vx/gtk apps
 
 all:
 	@for dir in $(SUBDIRS) ; do \

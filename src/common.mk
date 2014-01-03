@@ -162,6 +162,9 @@ LDFLAGS_LIBCAM:=$(LIB_PATH)/libcam.a \
 				$(LDFLAGS_GLIB) $(LDFLAGS_GTK) $(LDFLAGS_GL) \
 				$(LDFLAGS_JPEG) $(LDFLAGS_DC1394)
 
+# imagesource
+LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a
+
 %.o: %.c %.h
 	@echo "    [$@]"
 	$(CC) $(CFLAGS) -c $<

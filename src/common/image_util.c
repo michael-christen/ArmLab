@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
-image_u8_t * image_util_convert_rgb_to_rgba(image_u8_t * input)
-{
+//image_u8_t * image_util_convert_rgb_to_rgba(image_u8_t * input)
+//{
 /*    image_u8_t * output = calloc(1, sizeof(image_u8_t));
     output->bpp = 4;
     output->width = input->width;
@@ -31,7 +31,7 @@ image_u8_t * image_util_convert_rgb_to_rgba(image_u8_t * input)
         }
 
     return output;*/
-    return input; // XXX
-
-}
+//    return input; // XXX
+//
+//}
 

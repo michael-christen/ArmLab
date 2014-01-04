@@ -15,11 +15,12 @@
 // drawables
 #include "vx/vxo_drawables.h"
 
-#include "common/image_util.h"
 #include "common/getopt.h"
+#include "common/image_u32.h"
 
 // imagesource
-#include "imagesource/image_source.h" // XXX
+#include "imagesource/image_source.h"
+#include "imagesource/image_convert.h"
 
 // Holds world state, threading tools
 typedef struct
@@ -120,20 +121,29 @@ void* render_loop(void *data)
         // Get the most recent camera frame, if applicable
         if (isrc != NULL) {
             frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
-            printf("Getting frame...\n");
             int res = isrc->get_frame(isrc, frmd);
-            printf("Got frame...\n");
             if (res < 0) {
                 printf("get_frame fail: %d\n", res);
             } else {
                 // Handle frame
-                // XXX formats to vxo_image include GL_RGB and GL_RGBA
-                image_source_format_t *fmt = isrc->get_format(isrc, isrc->get_current_format(isrc));
-                vx_resc_t *buf = vx_resc_copyub(frmd->data, frmd->datalen);
-                vx_object_t *vim = vxo_image(buf, fmt->width, fmt->height, GL_RGB, VXO_IMAGE_FLIPY);
+                image_u32_t *im = convert_to_image(frmd);
 
-                vx_buffer_add_back(vx_world_get_buffer(state->world, "image"), vim);
+                vx_resc_t *buf = vx_resc_copyui(im->buf,
+                                                im->stride*im->height);
+
+                vx_object_t *vim = vxo_image_texflags(buf,
+                                                      im->width,
+                                                      im->height,
+                                                      GL_RGBA,
+                                                      VXO_IMAGE_FLIPY,
+                                                      VX_TEX_MIN_FILTER |
+                                                      VX_TEX_MAG_FILTER);
+
+                vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
+                                   vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
+                                             vim));
                 vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
+                image_u32_destroy(im);
             }
 
             fflush(stdout);

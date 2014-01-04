@@ -15,6 +15,7 @@
 // drawables
 #include "vx/vxo_drawables.h"
 
+#include "common/image_u32.h"
 #include "common/image_util.h"
 #include "common/getopt.h"
 
@@ -22,7 +23,7 @@ typedef struct
 {
     int running;
 
-    image_u8_t *img;
+    image_u32_t *img;
 
     vx_application_t app;
 
@@ -114,10 +115,10 @@ static void draw(state_t * state, vx_world_t * world)
 
     // Draw a texture
     if (state->img != NULL){
-        image_u8_t * img = state->img;
-        vx_object_t * o3 = vxo_image_texflags(vx_resc_copyub(img->buf, img->width*img->height*img->bpp),
-                                              img->width, img->height,
-                                              img->bpp == 4? GL_RGBA : GL_RGB, VXO_IMAGE_FLIPY,
+        image_u32_t * img = state->img;
+        vx_object_t * o3 = vxo_image_texflags(vx_resc_copyui(img->buf, img->stride*img->height),
+                                              img->stride, img->height,
+                                              GL_RGBA, VXO_IMAGE_FLIPY,
                                               VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
         // pack the image into the unit square
         vx_buffer_t * vb = vx_world_get_buffer(world, "texture");
@@ -161,7 +162,7 @@ static void state_destroy(state_t * state)
 {
 
     if (state->img != NULL)
-        image_u8_destroy(state->img);
+        image_u32_destroy(state->img);
 
     vx_world_destroy(state->world);
     assert(zhash_size(state->layers) == 0);
@@ -230,9 +231,10 @@ int main(int argc, char ** argv)
 
     // Load a pnm from file, and repack the data so that it's understandable by vx
     if (strcmp(getopt_get_string(gopt,"pnm"),"")) {
-        image_u8_t * img2 = image_u8_create_from_pnm(getopt_get_string(gopt, "pnm"));
-        state->img = image_util_convert_rgb_to_rgba(img2);
-        image_u8_destroy(img2);
+        image_u32_t *img2 = image_u32_create_from_pnm(getopt_get_string(gopt, "pnm"));
+        state->img = img2;
+        //state->img = image_util_convert_rgb_to_rgba(img2);
+        //image_u8_destroy(img2);
 
         printf("Loaded image %d x %d from %s\n",
                state->img->width, state->img->height,

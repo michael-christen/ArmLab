@@ -7,14 +7,13 @@
 
 #define ALIGNMENT 16
 
-image_u8_t *image_u8_create(int width, int height, int bpp)
+image_u8_t *image_u8_create(int width, int height)
 {
     image_u8_t *im = (image_u8_t*) calloc(1, sizeof(image_u8_t));
 
     im->width  = width;
     im->height = height;
-    im->bpp    = bpp;
-    im->stride = width*bpp;
+    im->stride = width;
 
     if ((im->stride % ALIGNMENT) != 0)
         im->stride += ALIGNMENT - (im->stride % ALIGNMENT);
@@ -33,6 +32,7 @@ void image_u8_destroy(image_u8_t *im)
 ////////////////////////////////////////////////////////////
 // PNM file i/o
 
+// Create a grayscale image from PNM.
 // TODO Refactor this to load u32 and convert to u8 using existing function
 image_u8_t *image_u8_create_from_pnm(const char *path)
 {
@@ -47,28 +47,40 @@ image_u8_t *image_u8_create_from_pnm(const char *path)
     if (3 != fscanf(f, "P%d\n%d %d\n255", &format, &width, &height))
         goto error;
 
-    // Binary Gray
-    if (format == 5) {
-        im = image_u8_create(width, height, 1);
-    }
-    // Binary RGB
-    else if (format == 6) {
-        im = image_u8_create(width, height, 3);
-    }
+    // Format 5 == Binary Gray
+    // Format 6 == Binary RGB
+    im = image_u8_create(width, height);
 
     // Dump one character, new line after 255
     int res = fread(im->buf, 1, 1, f);
     if (res != 1)
         goto error;
 
-    int sz = im->width*im->height*im->bpp;//im->stride*height;
-    buf = calloc(1, sz); // no stide when loading
+    int sz = im->width*im->height;
+    if (format == 6) {
+        sz *= 3;
+    }
+
+    buf = calloc(1, sz);
     if (sz != fread(buf, 1, sz, f))
         goto error;
 
-    // copy image line by line to deal with alignment
+    // Copy data from buf to the image buffer. Convert to gray if necessary
+    // Gray conversion for RGB is gray = (r + g + g + b)/4
     for (int y = 0; y < im->height; y++) {
-        memcpy(im->buf + y*im->stride, buf + y*im->width*im->bpp, im->width*im->bpp);
+        for (int x = 0; x < im->width; x++) {
+            uint8_t gray = 0;
+            if (format == 5) {
+                gray = buf[y*im->width + x];
+            } else if (format == 6) {
+                gray = (buf[y*im->width*3 + x] +      // r
+                        buf[y*im->width*3 + x+1] +    // g
+                        buf[y*im->width*3 + x+1] +    // g
+                        buf[y*im->width*3 + x+2]) /   // b
+                        4;
+            }
+            im->buf[y*im->stride + x] = gray;
+        }
     }
 
     free(buf);
@@ -97,28 +109,13 @@ int image_u8_write_pnm(const image_u8_t *im, const char *path)
         goto finish;
     }
 
-    if (im->bpp == 1) {
-        fprintf(f, "P5\n%d %d\n255\n", im->width, im->height);
+    // Only outputs to grayscale
+    fprintf(f, "P5\n%d %d\n255\n", im->width, im->height);
 
-        for (int y = 0; y < im->height; y++) {
-            if (im->width != fwrite(&im->buf[y*im->stride], 1, im->width, f)) {
-                res = -2;
-                goto finish;
-            }
-        }
-        // The following code also works for RGB images
-    } else if (im->bpp == 4 || im->bpp == 3) {
-        fprintf(f, "P6\n%d %d\n255\n", im->width, im->height);
-        for (int y = 0; y < im->height; y++) {
-            for (int x = 0; x < im->width; x++) {
-                int idx = y * im->stride + x*im->bpp;
-
-                int rgb_bpp = 3; // ignore 'a' in rgba // XXX How to distinguish RGBA and ARGB
-                if (rgb_bpp != fwrite(&im->buf[idx], 1, rgb_bpp, f)) {
-                    res = -2;
-                    goto finish;
-                }
-            }
+    for (int y = 0; y < im->height; y++) {
+        if (im->width != fwrite(&im->buf[y*im->stride], 1, im->width, f)) {
+            res = -2;
+            goto finish;
         }
     }
 finish:
@@ -133,6 +130,7 @@ finish:
 
 image_u8_t *image_u8_convert(const image_u8_t *in, int desired_bpp)
 {
+    /*
     if (in == NULL)
         return NULL;
 
@@ -262,6 +260,7 @@ image_u8_t *image_u8_convert(const image_u8_t *in, int desired_bpp)
     fprintf(stderr, "[image_u8_convert] Conversion of image from bpp %d to %d unsupported\n",
             in->bpp, desired_bpp);
 
+    */
     return NULL;
 }
 

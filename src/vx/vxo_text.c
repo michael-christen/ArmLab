@@ -279,7 +279,7 @@ static vxo_text_font_t *font_create(const char *font_name, int style, float poin
         // make sure there's no padding
         uint8_t *buf = malloc(im->width*im->height);
         for (int y = 0; y < im->height; y++)
-            memcpy(&buf[y*im->width], &im->buf[y*im->stride], im->width);
+            memcpy(&buf[y*im->width], &im->buf[y*im->width], im->width);
 
         vf->texture = vx_resc_copyub(buf, im->width*im->height);
     }

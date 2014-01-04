@@ -4,7 +4,7 @@ CFLAGS = $(CFLAGS_STD) $(CFLAGS_COMMON) $(CFLAGS_GLIB) -msse2 -fPIC -O4
 LDFLAGS = $(LDFLAGS_STD) $(LDFLAGS_COMMON) $(LDFLAGS_GLIB)
 
 COMMON_OBJS = getopt.o gps_linearize.o ioutils.o math_util.o moxa.o serial_wrapper.o timespec.o timestamp.o serial.o ssocket.o varray.o vhash.o string_util.o timesync.o \
-c5.o matd.o zarray.o zhash.o task_thread.o image_u8.o image_util.o
+c5.o matd.o zarray.o zhash.o task_thread.o image_u8.o image_u32.o image_util.o
 
 
 LIBCOMMON=$(LIB_PATH)/libcommon.a

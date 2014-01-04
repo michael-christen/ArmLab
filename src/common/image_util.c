@@ -5,7 +5,7 @@
 
 image_u8_t * image_util_convert_rgb_to_rgba(image_u8_t * input)
 {
-    image_u8_t * output = calloc(1, sizeof(image_u8_t));
+/*    image_u8_t * output = calloc(1, sizeof(image_u8_t));
     output->bpp = 4;
     output->width = input->width;
     output->height = input->height;
@@ -30,7 +30,8 @@ image_u8_t * image_util_convert_rgb_to_rgba(image_u8_t * input)
             output->buf[out_idx + 3] = a;
         }
 
-    return output;
+    return output;*/
+    return input; // XXX
 
 }
 

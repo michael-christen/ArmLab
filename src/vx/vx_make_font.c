@@ -50,7 +50,7 @@ void make_font(const char *basename)
     int imbuflen = im->width * im->height;
     uint8_t *imbuf = malloc(imbuflen);
     for (int y = 0; y < im->height; y++)
-        memcpy(&imbuf[y*im->width], &im->buf[y*im->stride], im->width);
+        memcpy(&imbuf[y*im->width], &im->buf[y*im->width], im->width);
 
     int vxfbuflen = bparambuflen + imbuflen + 8;
     uint8_t *vxfbuf = malloc(vxfbuflen);

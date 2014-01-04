@@ -17,6 +17,7 @@
 
 #include "common/getopt.h"
 #include "common/image_u32.h"
+#include "common/pg.h"
 
 // imagesource
 #include "imagesource/image_source.h"
@@ -246,6 +247,12 @@ int main(int argc, char **argv)
     vx_remote_display_source_t *cxn = vx_remote_display_source_create(&state->app);
     pthread_create(&state->animate_thread, NULL, render_loop, state);
 
+    // Initialize a parameter gui
+    parameter_gui_t *pg = pg_create();
+    pg_add_double_slider(pg, "sl1", "Slider 1", 0, 100, 50);
+    pg_add_int_slider(pg, "sl2", "Slider 2", 0, 100, 25);
+    // XXX Add stuff
+
     // Initialize GTK
     gdk_threads_init();
     gdk_threads_enter();
@@ -258,10 +265,19 @@ int main(int argc, char **argv)
     vx_gtk_display_source_t *appwrap = vx_gtk_display_source_create(&state->app);
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     GtkWidget *canvas = vx_gtk_display_source_get_widget(appwrap);
+    GtkWidget *pgui = pg_get_widget(pg);
     gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
-    gtk_container_add(GTK_CONTAINER(window), canvas);
-    gtk_widget_show(window);
+
+    // Pack a parameter gui and canvas into a vertical box
+    GtkWidget *vbox = (GtkWidget*)gtk_vbox_new(0, 0);
+    gtk_box_pack_start(GTK_BOX(vbox), canvas, 1, 1, 0);
     gtk_widget_show(canvas);    // XXX Show all causes errors!
+    gtk_box_pack_start(GTK_BOX(vbox), pgui, 0, 0, 0);
+    gtk_widget_show(pgui);
+
+    gtk_container_add(GTK_CONTAINER(window), vbox);
+    gtk_widget_show(window);
+    gtk_widget_show(vbox);
 
     g_signal_connect_swapped(G_OBJECT(window), "destroy", G_CALLBACK(gtk_main_quit), NULL);
 

@@ -5,6 +5,8 @@
 #include "pg.h"
 #include "param_widget.h"
 
+#include "common/zhash.h"
+#include "common/zarray.h"
 
 G_BEGIN_DECLS
 
@@ -23,7 +25,7 @@ struct parameter_gui
 {
     ParameterGUI * paramWidget;
 
-    //zhash_t listeners; // <parameter_listener_t *, parameter_listener_t *>
+    zhash_t *listeners; // <parameter_listener_t *, parameter_listener_t *>
 };
 
 
@@ -85,6 +87,35 @@ static void param_data_free(param_data_t *pdata)
     g_slice_free(param_data_t, pdata);
 }
 
+/** Listener hash and equals functions **/
+uint32_t parameter_listener_hash(const void *v)
+{
+    parameter_listener_t *pl = (parameter_listener_t*)v;
+    return zhash_ptr_hash(pl);
+}
+
+int parameter_listener_equals(const void *v0, const void *v1)
+{
+    parameter_listener_t *pl0 = (parameter_listener_t*)v0;
+    parameter_listener_t *pl1 = (parameter_listener_t*)v1;
+
+    return zhash_ptr_equals(pl0, pl1);
+}
+
+void pg_add_listener(parameter_gui_t *pg, parameter_listener_t *listener)
+{
+    void *old_key = NULL;
+    void *old_value = NULL;
+    int res = zhash_put(pg->listeners, &listener, &listener, &old_key, &old_value);
+}
+
+void pg_remove_listener(parameter_gui_t *pg, parameter_listener_t *listener)
+{
+    void *old_key = NULL;
+    void *old_value = NULL;
+    zhash_remove(pg->listeners, &listener, &old_key, &old_value);
+}
+
 /** GTK required functions **/
 
 enum {
@@ -104,6 +135,7 @@ static void gtk_param_gui_class_init (ParameterGUIClass *klass)
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     gobject_class->finalize = gtk_param_gui_finalize;
 
+    // XXX g_signal_new deprecated in favor of g_signal_newv
     gtk_param_gui_signals[CHANGED_SIGNAL] = g_signal_new("changed",
             G_TYPE_FROM_CLASS(klass),
             G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
@@ -143,30 +175,41 @@ static int have_parameter_key (ParameterGUI *pg, const char *name)
 
 static void generic_widget_changed (GtkWidget *w, gpointer user_data)
 {
-    ParameterGUI *pg = GTK_PARAM_GUI(user_data);
+    parameter_gui_t *pg = (parameter_gui_t*)user_data;
+    ParameterGUI *gtkpg = GTK_PARAM_GUI(pg->paramWidget);
     param_data_t *pd =
-        (param_data_t*) g_hash_table_lookup (pg->widget_to_param, w);
-    g_signal_emit (G_OBJECT (pg),
+        (param_data_t*) g_hash_table_lookup (gtkpg->widget_to_param, w);
+    g_signal_emit (G_OBJECT (gtkpg),
             gtk_param_gui_signals[CHANGED_SIGNAL], 0, pd->name);
 
+    // Notify listeners of change
+    zarray_t *keys = zhash_keys(pg->listeners);
+    for (int i = 0; i < zarray_size(keys); i++) {
+        parameter_listener_t *pl;
+        zarray_get(keys, i, &pl);
+        pl->param_changed(pl, pg, pd->name);
+    }
+    zarray_destroy(keys);
 }
 
-static param_data_t *add_row (ParameterGUI *pg, const char *name, const char * desc,
+static param_data_t *add_row (parameter_gui_t *pg, const char *name, const char * desc,
                               GtkWidget *w, const char *signal_name, GType data_type)
 {
+    ParameterGUI *gtkpg = GTK_PARAM_GUI(pg->paramWidget);
+
     GtkWidget *hb = gtk_hbox_new (FALSE, 0);
     GtkWidget *lbl = gtk_label_new (desc);
     gtk_box_pack_start (GTK_BOX (hb), lbl, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX (hb), w, TRUE, TRUE, 0);
-    gtk_box_pack_start (GTK_BOX (&pg->vbox), hb, TRUE, TRUE, 0);
-    pg->widgets = g_list_append (pg->widgets, hb);
-    pg->widgets = g_list_append (pg->widgets, lbl);
-    pg->widgets = g_list_append (pg->widgets, w);
+    gtk_box_pack_start (GTK_BOX (&gtkpg->vbox), hb, TRUE, TRUE, 0);
+    gtkpg->widgets = g_list_append (gtkpg->widgets, hb);
+    gtkpg->widgets = g_list_append (gtkpg->widgets, lbl);
+    gtkpg->widgets = g_list_append (gtkpg->widgets, w);
 
-    g_hash_table_insert (pg->params, (gpointer)name, w);
+    g_hash_table_insert (gtkpg->params, (gpointer)name, w);
 
     param_data_t *pdata = param_data_new(name, desc, w, data_type);
-    g_hash_table_insert (pg->widget_to_param, w, pdata);
+    g_hash_table_insert (gtkpg->widget_to_param, w, pdata);
 
     if (signal_name && strlen (signal_name)) {
         g_signal_connect (G_OBJECT(w), signal_name,
@@ -197,7 +240,7 @@ int pg_add_double_slider(parameter_gui_t *pg, const char *name,
     GtkWidget *w = gtk_hscale_new_with_range (min, max, inc);
     gtk_range_set_value (GTK_RANGE(w), var);
 
-    param_data_t * pdata = add_row (gtkpg, name, desc, w, "value-changed", G_TYPE_DOUBLE);
+    param_data_t * pdata = add_row (pg, name, desc, w, "value-changed", G_TYPE_DOUBLE);
     pdata->min_double = min;
     pdata->max_double = max;
     g_object_set_data (G_OBJECT(w), "data-type", "double");
@@ -226,7 +269,7 @@ int pg_add_int_slider(parameter_gui_t *pg, const char *name,
     gtk_range_set_value (GTK_RANGE(w), var);
 
     g_object_set_data (G_OBJECT(w), "data-type", "int");
-    add_row (gtkpg, name, desc, w, "value-changed", G_TYPE_INT);
+    add_row (pg, name, desc, w, "value-changed", G_TYPE_INT);
     return 0;
 }
 
@@ -360,12 +403,20 @@ parameter_gui_t *pg_create(void)
     pg->paramWidget = GTK_PARAM_GUI(gtk_param_gui_new());
     g_object_ref_sink(pg->paramWidget); // convert floating refernce to actual reference
 
+    // Listeners zhash
+    pg->listeners = zhash_create(sizeof(parameter_listener_t*),
+                                 sizeof(parameter_listener_t*),
+                                 parameter_listener_hash,
+                                 parameter_listener_equals);
+
+
     return pg;
 }
 
 
 void pg_destroy(parameter_gui_t *pg)
 {
+    zhash_destroy(pg->listeners);
     gtk_widget_destroy (GTK_WIDGET(pg->paramWidget));
     g_object_unref (pg->paramWidget);
 }

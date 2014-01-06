@@ -10,13 +10,12 @@ extern "C" {
 typedef struct parameter_gui parameter_gui_t;
 typedef struct parameter_listener parameter_listener_t;
 
-/*
+
 struct parameter_listener
 {
     void * impl;
     void (*param_changed)(parameter_listener_t * listener, parameter_gui_t * pg, const char * keyname);
 };
-*/
 
 
 // This is a pretty hacked together parameter gui implementation
@@ -27,10 +26,8 @@ struct parameter_listener
 parameter_gui_t * pg_create(void);
 void pg_destroy(parameter_gui_t *pg);
 
-/* We should add this functionality eventually.
 void pg_add_listener(parameter_gui_t *pg, parameter_listener_t * listener);
 void pg_remove_listener(parameter_gui_t *pg, parameter_listener_t * listener);
-*/
 
 GtkWidget * pg_get_widget(parameter_gui_t *pg);
 

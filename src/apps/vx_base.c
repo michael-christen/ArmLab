@@ -32,6 +32,8 @@ typedef struct
 
     vx_application_t app;
 
+    parameter_gui_t *pg;
+
     vx_world_t *world;  // Where vx objects are live
     zhash_t *layers;
 
@@ -70,6 +72,8 @@ static void state_destroy(state_t *state)
     vx_world_destroy(state->world);
     assert(zhash_size(state->layers) == 0);
 
+    pg_destroy(state->pg);
+
     zhash_destroy(state->layers);
     free(state);
 
@@ -90,6 +94,17 @@ static state_t* state_create()
     pthread_mutex_init(&state->mutex, NULL);
 
     return state;
+}
+
+// === Parameter listener ===================================================
+void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name)
+{
+    printf("Parameter changed: %s\n", name);
+    if (strcmp("sl1", name)) {
+        printf("sl1 = %f\n", pg_gd(pg, name));
+    } else if (strcmp("sl2", name)) {
+        printf("sl2 = %f\n", pg_gd(pg, name));
+    }
 }
 
 // === Your code goes here ==================================================
@@ -250,7 +265,12 @@ int main(int argc, char **argv)
     parameter_gui_t *pg = pg_create();
     pg_add_double_slider(pg, "sl1", "Slider 1", 0, 100, 50);
     pg_add_int_slider(pg, "sl2", "Slider 2", 0, 100, 25);
-    // XXX Add listener
+    parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
+    my_listener->impl == NULL;
+    my_listener->param_changed = my_param_changed;
+    pg_add_listener(pg, my_listener);
+
+    state->pg = pg;
 
     // Initialize GTK
     gdk_threads_init();
@@ -291,6 +311,9 @@ int main(int argc, char **argv)
 
     pthread_join(state->animate_thread, NULL);
     vx_remote_display_source_destroy(cxn);
+
+    // Cleanup
+    //free(my_listener);
 
     state_destroy(state);
     vx_global_destroy();

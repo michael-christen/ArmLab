@@ -3,13 +3,14 @@
 // === Parameter listener ===================================================
 void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name)
 {
-    printf("Parameter changed: %s\n", name);
     if (!strcmp("sl1", name)) {
         printf("sl1 = %f\n", pg_gd(pg, name));
     } else if (!strcmp("sl2", name)) {
         printf("sl2 = %d\n", pg_gi(pg, name));
     } else if (!strcmp("cb1", name) | !strcmp("cb2", name)) {
         printf("%s = %d\n", name, pg_gb(pg, name));
+    } else {
+        printf("%s changed\n", name);
     }
 }
 
@@ -175,6 +176,11 @@ int main(int argc, char **argv)
                        "cb1", "Check Box 1", 0,
                        "cb2", "Check Box 2", 1,
                        NULL);
+    pg_add_buttons(pg,
+                   "but1", "Button 1",
+                   "but2", "Button 2",
+                   "but3", "Button 3",
+                   NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
     my_listener->impl == NULL;

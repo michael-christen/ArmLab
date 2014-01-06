@@ -42,6 +42,7 @@ int pg_add_int_slider(parameter_gui_t *pg, const char *name, const char * desc,
 // WARNING: you must be sure to provide the correct number of arguments
 // (must be 0 mod 3 + 1 including NULL), or you will get a segfault or hang
 int pg_add_check_boxes(parameter_gui_t *pg, const char *name, const char * desc, int is_checked, ...) __attribute__((sentinel));
+int pg_add_buttons(parameter_gui_t *pg, const char *name, const char * desc, ...) __attribute__((sentinel));
 
 // Get Double
 double pg_gd(parameter_gui_t *pg, const char *name);

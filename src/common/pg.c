@@ -330,6 +330,61 @@ int pg_add_check_boxes(parameter_gui_t *pg, const char *name, const char * desc,
     return 0;
 }
 
+static int add_buttons_helper (parameter_gui_t *pg, GtkBox *box,
+                               const char *name, const char * desc)
+{
+    ParameterGUI *gtkpg = GTK_PARAM_GUI(pg->paramWidget);
+    if (have_parameter_key (gtkpg, name)) {
+        ERROR("ERROR: parameter named '%s' already in the ParameterGUI", name);
+        return -1;
+    }
+
+    GtkWidget *but = gtk_button_new_with_label (desc);
+    //gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (but), is_checked);
+
+    gtk_box_pack_start (GTK_BOX (box), but, TRUE, TRUE, 0);
+
+    gtkpg->widgets = g_list_append (gtkpg->widgets, but);
+
+    g_hash_table_insert (gtkpg->params, (gpointer)name, but);
+    //g_object_set_data (G_OBJECT(cb), "data-type", "boolean");
+
+    param_data_t *pd = param_data_new(name, desc, but, G_TYPE_BOOLEAN);
+    g_hash_table_insert (gtkpg->widget_to_param, but, pd);
+
+    g_signal_connect (G_OBJECT(but), "clicked",
+            G_CALLBACK (generic_widget_changed), pg);
+    return 0;
+}
+
+int pg_add_buttons(parameter_gui_t *pg, const char *name, const char * desc, ...)
+{
+    ParameterGUI *gtkpg = GTK_PARAM_GUI(pg->paramWidget);
+
+    va_list va;
+    va_start (va, desc);
+
+    GtkBox *hb = GTK_BOX (gtk_hbox_new (FALSE, 0));
+
+    while(1){
+
+        if(add_buttons_helper(pg, hb, name, desc) != 0)
+            return -1;
+
+        name = va_arg(va, const char *);
+        if(name == NULL || strlen(name) == 0)
+            break; // all done
+
+        desc = va_arg(va, const char *);
+    }
+
+    gtk_widget_show_all (GTK_WIDGET (hb));
+    gtk_box_pack_start (GTK_BOX(&gtkpg->vbox), GTK_WIDGET(hb), TRUE, TRUE, 0);
+
+    va_end(va);
+    return 0;
+}
+
 static double gtk_param_gui_get_double (ParameterGUI *pg, const char *name)
 {
     if(!have_parameter_key(pg, name)) {

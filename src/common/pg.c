@@ -273,10 +273,11 @@ int pg_add_int_slider(parameter_gui_t *pg, const char *name,
     return 0;
 }
 
-static int add_checkboxes_helper (ParameterGUI *pg, GtkBox *box,
+static int add_checkboxes_helper (parameter_gui_t *pg, GtkBox *box,
                                   const char *name, const char * desc, int is_checked)
 {
-    if (have_parameter_key (pg, name)) {
+    ParameterGUI *gtkpg = GTK_PARAM_GUI(pg->paramWidget);
+    if (have_parameter_key (gtkpg, name)) {
         ERROR("ERROR: parameter named '%s' already in the ParameterGUI", name);
         return -1;
     }
@@ -286,13 +287,13 @@ static int add_checkboxes_helper (ParameterGUI *pg, GtkBox *box,
 
     gtk_box_pack_start (GTK_BOX (box), cb, FALSE, FALSE, 0);
 
-    pg->widgets = g_list_append (pg->widgets, cb);
+    gtkpg->widgets = g_list_append (gtkpg->widgets, cb);
 
-    g_hash_table_insert (pg->params, (gpointer)name, cb);
+    g_hash_table_insert (gtkpg->params, (gpointer)name, cb);
     g_object_set_data (G_OBJECT(cb), "data-type", "boolean");
 
     param_data_t *pd = param_data_new(name, desc, cb, G_TYPE_BOOLEAN);
-    g_hash_table_insert (pg->widget_to_param, cb, pd);
+    g_hash_table_insert (gtkpg->widget_to_param, cb, pd);
 
     g_signal_connect (G_OBJECT(cb), "toggled",
             G_CALLBACK (generic_widget_changed), pg);
@@ -311,7 +312,7 @@ int pg_add_check_boxes(parameter_gui_t *pg, const char *name, const char * desc,
 
     while(1){
 
-        if(add_checkboxes_helper(gtkpg, hb, name, desc, is_checked) != 0)
+        if(add_checkboxes_helper(pg, hb, name, desc, is_checked) != 0)
             return -1;
 
         name = va_arg(va, const char *);

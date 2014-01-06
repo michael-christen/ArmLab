@@ -1,109 +1,15 @@
-#include <gtk/gtk.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <unistd.h>
-#include <pthread.h>
-
-// core api
-#include "vx/vx.h"
-#include "vx/vx_util.h"
-
-#include "vx/gtk/vx_gtk_display_source.h"
-#include "vx/vx_remote_display_source.h"
-
-// drawables
-#include "vx/vxo_drawables.h"
-
-#include "common/getopt.h"
-#include "common/image_u32.h"
-#include "common/pg.h"
-
-// imagesource
-#include "imagesource/image_source.h"
-#include "imagesource/image_convert.h"
-
-// Holds world state, threading tools
-typedef struct
-{
-    int running;
-
-    char *url;
-
-    vx_application_t app;
-
-    parameter_gui_t *pg;
-
-    vx_world_t *world;  // Where vx objects are live
-    zhash_t *layers;
-
-    pthread_mutex_t mutex;  // for accessing the arrays
-    pthread_t animate_thread;
-} state_t;
-
-static void display_finished(vx_application_t *app, vx_display_t *disp)
-{
-    state_t *state = app->impl;
-    pthread_mutex_lock(&state->mutex);
-
-    vx_layer_t *layer = NULL;
-    zhash_remove(state->layers, &disp, NULL, &layer);
-    vx_layer_destroy(layer);
-
-    pthread_mutex_unlock(&state->mutex);
-}
-
-static void display_started(vx_application_t *app, vx_display_t *disp)
-{
-    state_t *state = app->impl;
-
-    vx_layer_t *layer = vx_layer_create(state->world);
-    vx_layer_set_display(layer, disp);
-
-    pthread_mutex_lock(&state->mutex);
-    // store a reference to the world and layer that we associate with each
-    // vx_display_t
-    zhash_put(state->layers, &disp, &layer, NULL, NULL);
-    pthread_mutex_unlock(&state->mutex);
-}
-
-static void state_destroy(state_t *state)
-{
-    vx_world_destroy(state->world);
-    assert(zhash_size(state->layers) == 0);
-
-    pg_destroy(state->pg);
-
-    zhash_destroy(state->layers);
-    free(state);
-
-    pthread_mutex_destroy(&state->mutex);
-}
-
-static state_t* state_create()
-{
-    state_t *state = calloc(1, sizeof(state_t));
-    state->running = 1;
-    state->app.impl = state;
-    state->app.display_started = display_started;
-    state->app.display_finished = display_finished;
-
-    state->world = vx_world_create();
-    state->layers = zhash_create(sizeof(vx_display_t*), sizeof(vx_layer_t*), zhash_ptr_hash, zhash_ptr_equals);
-
-    pthread_mutex_init(&state->mutex, NULL);
-
-    return state;
-}
+#include "vx_base_support.h"    // This is where a lot of the internals live
 
 // === Parameter listener ===================================================
 void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name)
 {
     printf("Parameter changed: %s\n", name);
-    if (strcmp("sl1", name)) {
+    if (!strcmp("sl1", name)) {
         printf("sl1 = %f\n", pg_gd(pg, name));
-    } else if (strcmp("sl2", name)) {
-        printf("sl2 = %f\n", pg_gd(pg, name));
+    } else if (!strcmp("sl2", name)) {
+        printf("sl2 = %d\n", pg_gi(pg, name));
+    } else if (!strcmp("cb1", name) | !strcmp("cb2", name)) {
+        printf("%s = %d\n", name, pg_gb(pg, name));
     }
 }
 
@@ -265,6 +171,11 @@ int main(int argc, char **argv)
     parameter_gui_t *pg = pg_create();
     pg_add_double_slider(pg, "sl1", "Slider 1", 0, 100, 50);
     pg_add_int_slider(pg, "sl2", "Slider 2", 0, 100, 25);
+    pg_add_check_boxes(pg,
+                       "cb1", "Check Box 1", 0,
+                       "cb2", "Check Box 2", 1,
+                       NULL);
+
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
     my_listener->impl == NULL;
     my_listener->param_changed = my_param_changed;
@@ -275,39 +186,11 @@ int main(int argc, char **argv)
     // Initialize GTK
     gdk_threads_init();
     gdk_threads_enter();
-
     gtk_init(&argc, &argv);
 
-    // Creates a GTK window to wrap around our vx display canvas. The vx world
-    // is rendered to the canvas widget, which acts as a viewport into your
-    // virtual world.
-    vx_gtk_display_source_t *appwrap = vx_gtk_display_source_create(&state->app);
-    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    GtkWidget *canvas = vx_gtk_display_source_get_widget(appwrap);
-    GtkWidget *pgui = pg_get_widget(pg);
-    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
-
-    // Pack a parameter gui and canvas into a vertical box
-    GtkWidget *vbox = (GtkWidget*)gtk_vbox_new(0, 0);
-    gtk_box_pack_start(GTK_BOX(vbox), canvas, 1, 1, 0);
-    gtk_widget_show(canvas);    // XXX Show all causes errors!
-    gtk_box_pack_start(GTK_BOX(vbox), pgui, 0, 0, 0);
-    gtk_widget_show(pgui);
-
-    gtk_container_add(GTK_CONTAINER(window), vbox);
-    gtk_widget_show(window);
-    gtk_widget_show(vbox);
-
-    g_signal_connect_swapped(G_OBJECT(window), "destroy", G_CALLBACK(gtk_main_quit), NULL);
-
-    gtk_main(); // Blocks as long as GTK window is open
-    gdk_threads_leave();
-
-    vx_gtk_display_source_destroy(appwrap);
-
+    init_gui(state, 800, 600);
     // Quit when GTK closes
     state->running = 0;
-
 
     pthread_join(state->animate_thread, NULL);
     vx_remote_display_source_destroy(cxn);

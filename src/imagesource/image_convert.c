@@ -85,6 +85,22 @@ image_u32_t *debayer_gbrg(frame_data_t *frmd)
     return im;
 }
 
+image_u32_t *gray8(frame_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt->width,
+                                       frmd->ifmt->height);
+    uint8_t *buf = (uint8_t*)(frmd->data);
+    for (int y = 0; y < im->height; y++) {
+        for (int x = 0; x < im->width; x++) {
+            int idx = y*im->width + x;
+            int gray = buf[idx] & 0xff;
+            im->buf[y*im->stride+x] = (0xff000000) | gray << 16 | gray << 8 | gray;
+        }
+    }
+
+    return im;
+}
+
 image_u32_t *convert_to_image(frame_data_t *frmd)
 {
     if (!strcmp("BAYER_GBRG", frmd->ifmt->format)) {
@@ -96,15 +112,7 @@ image_u32_t *convert_to_image(frame_data_t *frmd)
     } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
         printf("format not yet implemented\n");
     } else if (!strcmp("GRAY8", frmd->ifmt->format)) {
-        image_u32_t *im = image_u32_create(frmd->ifmt->width,
-                                           frmd->ifmt->height);
-        for (int y = 0; y < im->height; y++) {
-            for (int x = 0; x < im->width; x++) {
-                im->buf[y*im->stride+x] = ((uint32_t*)(frmd->data))[y*im->width+x];
-            }
-        }
-
-        return im;
+        return gray8(frmd);
     } else if (!strcmp("YUYV", frmd->ifmt->format)) {
         printf("format not yet implemented\n");
     } else {

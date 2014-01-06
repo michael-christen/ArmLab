@@ -58,6 +58,7 @@ url_parser_t *url_parser_create(const char *s)
 
         parampos = nextparampos;
     }
+
     return urlp;
 }
 

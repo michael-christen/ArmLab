@@ -230,6 +230,7 @@ int main(int argc, char **argv)
         for (int i = 0; urls[i] != NULL; i++)
             printf("  %3d: %s\n", i, urls[i]);
 
+        // XXX Shouldn't require a camera
         if (urls[0]==NULL) {
             printf("Found no cameras.\n");
             return -1;
@@ -237,8 +238,6 @@ int main(int argc, char **argv)
 
         state->url = urls[0];
     }
-
-    // PNM/Drawing stuff XXX
 
     // Initialize this application as a remote display source. This allows
     // you to use remote displays to render your visualization. Also starts up
@@ -251,7 +250,7 @@ int main(int argc, char **argv)
     parameter_gui_t *pg = pg_create();
     pg_add_double_slider(pg, "sl1", "Slider 1", 0, 100, 50);
     pg_add_int_slider(pg, "sl2", "Slider 2", 0, 100, 25);
-    // XXX Add stuff
+    // XXX Add listener
 
     // Initialize GTK
     gdk_threads_init();

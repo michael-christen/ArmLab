@@ -1,6 +1,6 @@
 include ../common.mk
 
-CC = gcc -c
+#CC = gcc -c
 #CFLAGS = $(CFLAGS_COMMON) -Wall -g -std=gnu99 -fno-omit-frame-pointer -fno-stack-protector -D_REENTRANT -fPIC -shared -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wno-unused-parameter -Wno-unused-variable -Wno-format-zero-length -O0
 CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_STD)
 LDFLAGS = $(LDFLAGS_COMMON) $(LDFLAGS_STD)
@@ -29,16 +29,17 @@ endif
 all: $(ALL)
 
 istest: main.o $(IMAGESOURCE_OBJS)
+	@echo "     istest"; \
 	gcc -L../../lib main.o $(IMAGESOURCE_OBJS) -o istest -ldc1394 -lc -lcommon -lpng -lpthread -lusb-1.0 -lm
 
 tcpstream: tcp_image_streamer.c
-	gcc -o tcpstream -std=gnu99 tcp_image_streamer.c -lc
+	@gcc -o tcpstream -std=gnu99 tcp_image_streamer.c -lc
 
 $(DESTLIB): $(LIBIMAGESOURCE)
-	cp $(LIBIMAGESOURCE) $(DESTLIB)
+	@cp $(LIBIMAGESOURCE) $(DESTLIB)
 
 $(LIBIMAGESOURCE): $(IMAGESOURCE_OBJS)
-	ar rc $@ $(IMAGESOURCE_OBJS)
+	@ar rc $@ $(IMAGESOURCE_OBJS)
 
 # XXX This will be a problem
 #libimagesource.so: april_jcam_ImageSourceNative.h $(LIBIMAGESOURCE_OBJS)
@@ -49,7 +50,7 @@ $(LIBIMAGESOURCE): $(IMAGESOURCE_OBJS)
 #	javah -classpath ../../april.jar  april.jcam.ImageSourceNative
 
 clean:
-	rm -f *~ $(LIBIMAGESOURCE) $(DESTLIB) $(IMAGESOURCE_OBJS) istest main.o tcpstream tcp_image_streamer.o
+	@rm -f *~ $(LIBIMAGESOURCE) $(DESTLIB) $(IMAGESOURCE_OBJS) istest main.o tcpstream tcp_image_streamer.o
 
 # If you get an error message saying that you're missing jni.h or
 # jni_md.h, locate those files and add the directories using the -I
@@ -57,5 +58,5 @@ clean:
 
 DC1394_INCLUDES = -I/usr/local/include/
 
-%.o: %.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $(DC1394_INCLUDES) $<
+#%.o: %.c
+#	$(CC) $(CFLAGS) $(LDFLAGS) $(DC1394_INCLUDES) $<

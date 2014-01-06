@@ -16,26 +16,26 @@ VX_SCENE_VIEWER=../../../bin/vx_scene_viewer
 all: $(DESTLIB_GTK) $(VX_DEMO) $(VX_REMOTE_VIEWER) $(VX_SCENE_VIEWER)
 
 $(DESTLIB_GTK) : $(LIB_GTK)
-	cp $(LIB_GTK) $(DESTLIB_GTK)
+	@cp $(LIB_GTK) $(DESTLIB_GTK)
 
 $(LIB_GTK):  $(LIBVX_GTK_OBJS)
-	@echo "    [$@]"
-	ar rc $@ $^
+	@echo "\t[$@]"
+	@ar rc $@ $^
 
 $(VX_DEMO) : vx_demo.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
-	@echo "    [$@]"
-	gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
+	@echo "\t[$@]"
+	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 $(VX_SCENE_VIEWER) : vx_scene_viewer.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
-	@echo "    [$@]"
-	gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
+	@echo "\t[$@]"
+	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 $(VX_REMOTE_VIEWER) : vx_remote_viewer.o $(LIB_GTK)
-	@echo "    [$@]"
-	gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
+	@echo "\t[$@]"
+	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 clean:
-	rm -rf  $(LIBVX_GTK_OBJS) $(VX_DEMO) $(VX_REMOTE_VIEWER) *.o $(DESTLIB_GTK) $(LIBVX_GTK)
+	@rm -rf  $(LIBVX_GTK_OBJS) $(VX_DEMO) $(VX_REMOTE_VIEWER) *.o $(DESTLIB_GTK) $(LIBVX_GTK)
 
 test:
 	@if [ -d test ]; then $(MAKE) -C test test ; else echo "  No tests"; fi

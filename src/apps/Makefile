@@ -10,8 +10,8 @@ LIB = ../../lib
 all: $(VX_BASE)
 
 $(VX_BASE) : vx_base_support.o vx_base.o
-	@echo "    [$@]"
-	gcc -o $@ $^ $(LDFLAGS)
+	@echo "\t[$@]"
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -rf  $(VX_BASE) *.o *~
+	@rm -rf  $(VX_BASE) *.o *~

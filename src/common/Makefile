@@ -13,16 +13,17 @@ all: $(LIBCOMMON)
 
 
 $(LIBCOMMON): $(COMMON_OBJS)
-	ar rc $@ $(COMMON_OBJS)
+	@echo "\t[$@]"
+	@ar rc $@ $(COMMON_OBJS)
 
 pixels.o: pixels.c
-	@echo "    [$@]"
-	$(CC) $(CFLAGS) -msse3 -c $<
+	@echo "\t[$@]"
+	@$(CC) $(CFLAGS) -msse3 -c $<
 
 gridmap.o: gridmap.c
-	@echo "    [$@]"
-	$(CC) $(CFLAGS) -msse -c $<
+	@echo "\t[$@]";
+	@$(CC) $(CFLAGS) -msse -c $<
 
 clean:
-	rm -f *.o *~ *.a
-	rm -f gu_minheap_tester
+	@rm -f *.o *~ *.a
+	@rm -f gu_minheap_tester

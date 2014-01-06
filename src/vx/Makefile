@@ -29,21 +29,21 @@ ALL = $(DESTLIB) $(DESTLIBVXGL) vx_make_font
 all: $(ALL) fonts
 
 $(LIB):  $(LIBVX_OBJS)
-	@echo "    [$@]"
-	ar rc $@ $^
+	@echo "\t[$@]"
+	@ar rc $@ $^
 
 $(LIBVXGL):  $(LIBVXGL_OBJS)
-	@echo "    [$@]"
-	ar rc $@ $^
+	@echo "\t[$@]"
+	@ar rc $@ $^
 
 $(DESTLIB): $(LIB)
-	cp $(LIB) $(DESTLIB)
+	@cp $(LIB) $(DESTLIB)
 
 $(DESTLIBVXGL): $(LIBVXGL)
-	cp $(LIBVXGL) $(DESTLIBVXGL)
+	@cp $(LIBVXGL) $(DESTLIBVXGL)
 
 $(VX_REMOTE_TEST) : vx_remote_test.o $(LIB)
-	@echo "    [$@]"
+	@echo "\t[$@]"
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 # Delete the font directory to pull again
@@ -54,10 +54,11 @@ fonts :
 	mv vx_fonts fonts
 
 vx_make_font: vx_make_font.o
-	$(CC) $(CFLAGS) -o vx_make_font $< $(LDFLAGS_COMMON) $(LDFLAGS_STD)
+	@echo "\t[$@]"
+	@$(CC) $(CFLAGS) -o vx_make_font $< $(LDFLAGS_COMMON) $(LDFLAGS_STD)
 
 clean:
-	rm -f *~ *.o *.d vx_test $(LIB) $(DESTLIB) $(LIBVXGL) $(DESTLIBVXGL)
+	@rm -f *~ *.o *.d vx_test $(LIB) $(DESTLIB) $(LIBVXGL) $(DESTLIBVXGL)
 
 test:
 	@if [ -d test ]; then $(MAKE) -C test test ; else echo "  No tests"; fi

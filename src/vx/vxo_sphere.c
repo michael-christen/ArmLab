@@ -22,7 +22,7 @@
 
 static vx_resc_t * vertex_points = NULL;
 static vx_resc_t * tri_indices = NULL;
-static vx_resc_t * tri_normals = NULL;
+//static vx_resc_t * tri_normals = NULL;
 static vx_resc_t * line_indices = NULL;
 static int NVERTS = 0;
 static int NTRIS = 0;
@@ -235,12 +235,12 @@ static void vxo_sphere_init(int quality)
 
     vertex_points = vx_resc_copyf(_verts, 3*NVERTS);
     tri_indices = vx_resc_copyui(_tri_indices, 3*NTRIS);
-    tri_normals = vx_resc_copyf(_verts, 3*NVERTS);
+    //tri_normals = vx_resc_copyf(_verts, 3*NVERTS);
     line_indices = vx_resc_copyui(_line_indices, 3*2*NTRIS);
 
     vx_resc_inc_ref(vertex_points);
     vx_resc_inc_ref(tri_indices);
-    vx_resc_inc_ref(tri_normals);
+    //vx_resc_inc_ref(tri_normals);
     vx_resc_inc_ref(line_indices);
 
     // Clean up
@@ -256,7 +256,7 @@ static void vxo_sphere_destroy(void *ignored)
 {
     vx_resc_dec_destroy(vertex_points);
     vx_resc_dec_destroy(tri_indices);
-    vx_resc_dec_destroy(tri_normals);
+    //vx_resc_dec_destroy(tri_normals);
     vx_resc_dec_destroy(line_indices);
 }
 
@@ -289,7 +289,7 @@ vx_object_t* _vxo_sphere_private(vx_style_t *style, ...)
                 break;
             case VXO_MESH_STYLE:
                 vxo_chain_add(vc, vxo_mesh_indexed(vertex_points, NVERTS,
-                                                   tri_normals,    // XXX normals
+                                                   vertex_points,
                                                    tri_indices, GL_TRIANGLES,
                                                    sty));
                 break;

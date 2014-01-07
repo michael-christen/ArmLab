@@ -78,7 +78,6 @@ void* render_loop(void *data)
         // Example rendering
         double rad = (vx_mtime() % 5000) * 2 * M_PI / 5e3;   // [0,2PI]
         double osc = ((vx_mtime() % 5000) / 5e3) * 2 - 1;    // [-1, 1]
-        rad = 0;
 
         // Creates a blue box and applies a series of rigid body transformations
         // to it. A vxo_chain applies its arguments sequentially. In this case,
@@ -90,7 +89,7 @@ void* render_loop(void *data)
         // solid, blue sides.
         vx_object_t *vo = vxo_chain(vxo_mat_rotate_z(rad),
                                     vxo_mat_translate2(0,10),
-                                    vxo_sphere(vxo_lines_style(vx_blue, 1)));
+                                    vxo_sphere(vxo_mesh_style(vx_blue)));
 
         // Then, we add this object to a buffer awaiting a render order
         vx_buffer_add_back(vx_world_get_buffer(state->world, "rot-square"), vo);

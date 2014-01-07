@@ -49,24 +49,28 @@ void* render_loop(void *data)
                 printf("get_frame fail: %d\n", res);
             } else {
                 // Handle frame
-                image_u32_t *im = convert_to_image(frmd);
+                image_u32_t *im = image_convert_u32(frmd);
+                if (im != NULL) {
 
-                vx_resc_t *buf = vx_resc_copyui(im->buf,
-                                                im->stride*im->height);
+                    vx_resc_t *buf = vx_resc_copyui(im->buf,
+                                                    im->stride*im->height);
 
-                vx_object_t *vim = vxo_image_texflags(buf,
-                                                      im->width,
-                                                      im->height,
-                                                      GL_RGBA,
-                                                      VXO_IMAGE_FLIPY,
-                                                      VX_TEX_MIN_FILTER |
-                                                      VX_TEX_MAG_FILTER);
+                    vx_object_t *vim = vxo_image_texflags(buf,
+                                                          im->width,
+                                                          im->height,
+                                                          GL_RGBA,
+                                                          VXO_IMAGE_FLIPY,
+                                                          VX_TEX_MIN_FILTER |
+                                                          VX_TEX_MAG_FILTER);
 
-                vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
-                                   vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
-                                             vim));
-                vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
-                image_u32_destroy(im);
+                    vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
+                                       vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
+                                                 vim));
+                    vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
+                    printf(".");
+                    fflush(NULL);
+                    image_u32_destroy(im);
+                }
             }
 
             fflush(stdout);
@@ -121,6 +125,8 @@ void* render_loop(void *data)
 // fill in the functionality with your own code.
 int main(int argc, char **argv)
 {
+    g_type_init();
+
     // Parse arguments from the command line, showing the help
     // screen if required
     getopt_t *gopt = getopt_create();
@@ -143,6 +149,7 @@ int main(int argc, char **argv)
     // Set up the imagesource
     if (strncmp(getopt_get_string(gopt, "url"), "", 1)) {
         state->url = getopt_get_string(gopt, "url");
+        printf("URL: %s\n", state->url);
     } else {
         // No URL specified. Show all available and then
         // use the first

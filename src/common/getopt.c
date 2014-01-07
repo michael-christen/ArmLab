@@ -91,29 +91,38 @@ int getopt_parse(getopt_t *gopt, int argc, char *argv[], int showErrors)
     // take the input stream and chop it up into tokens
     for (int i = 1; i < argc; i++) {
         char *arg = strdup(argv[i]);
-        char *eq = strstr(arg, "=");
 
-        // no equal sign? Push the whole thing.
-        if (eq == NULL) {
+        if (arg[0] != '-') {
+            // if this isn't an option, put the whole thing in the args list.
             zarray_add(toks, &arg);
+
         } else {
-            // there was an equal sign. Push the part
-            // before and after the equal sign
-            char *val = strdup(&eq[1]);
-            eq[0] = 0;
-            zarray_add(toks, &arg);
+            // this is an option. It could be a flag (like -v), or an option
+            // with arguments (--file=foobar.txt).
+            char *eq = strstr(arg, "=");
 
-            // if the part after the equal sign is
-            // enclosed by quotation marks, strip them.
-            if (val[0]=='\"') {
-                int last = strlen(val) - 1;
-                if (val[last]=='\"')
-                    val[last] = 0;
-                char *valclean = strdup(&val[1]);
-                zarray_add(toks, &valclean);
-                free(val);
+            // no equal sign? Push the whole thing.
+            if (eq == NULL) {
+                zarray_add(toks, &arg);
             } else {
-                zarray_add(toks, &val);
+                // there was an equal sign. Push the part
+                // before and after the equal sign
+                char *val = strdup(&eq[1]);
+                eq[0] = 0;
+                zarray_add(toks, &arg);
+
+                // if the part after the equal sign is
+                // enclosed by quotation marks, strip them.
+                if (val[0]=='\"') {
+                    int last = strlen(val) - 1;
+                    if (val[last]=='\"')
+                        val[last] = 0;
+                    char *valclean = strdup(&val[1]);
+                    zarray_add(toks, &valclean);
+                    free(val);
+                } else {
+                    zarray_add(toks, &val);
+                }
             }
         }
     }

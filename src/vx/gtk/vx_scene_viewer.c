@@ -124,19 +124,23 @@ static void display_started(vx_application_t * app, vx_display_t * disp)
 }
 
 
+void do_usage_and_exit(getopt_t *gopt, int argc, char ** argv)
+{
+    printf ("Usage: %s [options] <scene>\n\n", argv[0]);
+    getopt_do_usage (gopt);
+    exit (1);
+}
+
 int main(int argc, char ** argv)
 {
     getopt_t *gopt = getopt_create();
     getopt_add_bool   (gopt, 'h', "help", 0, "Show help");
     getopt_add_bool (gopt, '\0', "no-gtk", 0, "Don't show gtk window, only advertise remote connection");
-    getopt_add_string (gopt, 's', "scene", "", "Path for vx scene file");
     getopt_add_bool (gopt, '\0', "stay-open", 0, "Stay open after gtk exits to continue handling remote connections");
 
     // parse and print help
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
-        printf ("Usage: %s [options]\n\n", argv[0]);
-        getopt_do_usage (gopt);
-        exit (1);
+        do_usage_and_exit(gopt, argc, argv);
     }
 
     vx_global_init(); // Call this to initialize the vx-wide lock. Required to start the GL thread or to use the program library
@@ -146,11 +150,18 @@ int main(int argc, char ** argv)
     state->app.display_started=display_started;
     state->app.display_finished=display_finished;
 
+    const zarray_t *scenes = getopt_get_extra_args(gopt);
+    if (zarray_size(scenes) == 0)
+        do_usage_and_exit(gopt, argc, argv);
 
     if (1) {
-        FILE * fp = fopen(getopt_get_string(gopt, "scene"), "r");
+
+        char *scene_path;
+        zarray_get(scenes, 0, &scene_path);
+
+        FILE * fp = fopen(scene_path, "r");
         if (fp == NULL) {
-            printf("ERR: Unable to read %s\n", getopt_get_string(gopt, "scene"));
+            printf("ERR: Unable to read %s\n", scene_path);
             exit(1);
         }
 
@@ -161,7 +172,7 @@ int main(int argc, char ** argv)
         uint64_t rcount = fread(filedata, 1, length, fp);
         if (rcount != length) {
             printf("Failed to read from %s. Expected %"PRIu64" but only got %"PRIu64"\n",
-                   getopt_get_string(gopt, "scene"), length, rcount);
+                   scene_path, length, rcount);
         }
         fclose(fp);
 
@@ -170,7 +181,7 @@ int main(int argc, char ** argv)
         free(filedata);
 
 
-        printf("Read %"PRIu64" bytes from %s\n", length, getopt_get_string(gopt, "scene"));
+        printf("Read %"PRIu64" bytes from %s\n", length, scene_path);
     }
 
 

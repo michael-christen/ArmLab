@@ -63,7 +63,10 @@ void* render_loop(void *data)
                                                       VX_TEX_MAG_FILTER);
 
                 vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
-                                   vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
+                                   vxo_chain(vxo_mat_scale(1.0/10),
+                                             vxo_mat_translate3(-im->width/2,
+                                                                -im->height/2,
+                                                                0),
                                              vim));
                 vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
                 image_u32_destroy(im);
@@ -75,6 +78,7 @@ void* render_loop(void *data)
         // Example rendering
         double rad = (vx_mtime() % 5000) * 2 * M_PI / 5e3;   // [0,2PI]
         double osc = ((vx_mtime() % 5000) / 5e3) * 2 - 1;    // [-1, 1]
+        rad = 0;
 
         // Creates a blue box and applies a series of rigid body transformations
         // to it. A vxo_chain applies its arguments sequentially. In this case,
@@ -86,7 +90,7 @@ void* render_loop(void *data)
         // solid, blue sides.
         vx_object_t *vo = vxo_chain(vxo_mat_rotate_z(rad),
                                     vxo_mat_translate2(0,10),
-                                    vxo_box(vxo_mesh_style(vx_blue)));
+                                    vxo_sphere(vxo_mesh_style(vx_blue)));
 
         // Then, we add this object to a buffer awaiting a render order
         vx_buffer_add_back(vx_world_get_buffer(state->world, "rot-square"), vo);

@@ -26,5 +26,6 @@
 #include "vxo_square_pyramid.h"
 #include "vxo_cylinder.h"
 #include "vxo_axes.h"
+#include "vxo_sphere.h"
 
 #endif

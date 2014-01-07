@@ -4,7 +4,7 @@ CFLAGS = $(CFLAGS_STD) $(CFLAGS_COMMON) -fPIC `pkg-config --cflags freetype2` -p
 LDFLAGS = $(LDFLAGS_STD) -lpthread $(LDFLAGS_COMMON)
 
 
-LIBVX_DRAWABLE_OBJS = vxo_chain.o vxo_mat.o vxo_mesh.o vxo_lines.o vxo_points.o vxo_depth_test.o vxo_text.o vxo_rect.o vxo_robot.o vxo_box.o vxo_arrow.o vxo_axes.o vxo_square_pyramid.o vxo_tetrahedron.o vxo_cylinder.o vxo_image.o vxo_grid.o vxo_objmtl.o vxo_circle.o vxo_pix_coords.o
+LIBVX_DRAWABLE_OBJS = vxo_chain.o vxo_mat.o vxo_mesh.o vxo_lines.o vxo_points.o vxo_depth_test.o vxo_text.o vxo_rect.o vxo_robot.o vxo_box.o vxo_arrow.o vxo_axes.o vxo_square_pyramid.o vxo_tetrahedron.o vxo_cylinder.o vxo_image.o vxo_grid.o vxo_objmtl.o vxo_circle.o vxo_pix_coords.o vxo_sphere.o
 LIBVX_USER_OBJS = vx_world.o vx_layer.o vx_util.o vx_program.o vx_matrix_stack.o vxp.o vx_camera_pos.o default_camera_mgr.o default_event_handler.o vx_ray3.o vx_viewport_mgr.o
 LIBVX_CORE_OBJS = vx_code_input_stream.o vx_code_output_stream.o vx_resc.o vx_resc_manager.o vx_tcp_display.o vx_remote_display_source.o vx_global.o vx_tcp_util.o
 LIBVX_OBJS = $(LIBVX_CORE_OBJS) $(LIBVX_USER_OBJS) $(LIBVX_DRAWABLE_OBJS)

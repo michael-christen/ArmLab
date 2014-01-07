@@ -90,7 +90,7 @@ void* render_loop(void *data)
         // solid, blue sides.
         vx_object_t *vo = vxo_chain(vxo_mat_rotate_z(rad),
                                     vxo_mat_translate2(0,10),
-                                    vxo_sphere(vxo_mesh_style(vx_blue)));
+                                    vxo_sphere(vxo_lines_style(vx_blue, 1)));
 
         // Then, we add this object to a buffer awaiting a render order
         vx_buffer_add_back(vx_world_get_buffer(state->world, "rot-square"), vo);

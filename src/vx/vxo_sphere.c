@@ -55,16 +55,16 @@ static float* add(float a[], float b[], float r[], int len)
     return r;
 }
 
-static float* sub(float a[], float b[], float r[], int len)
+/*static float* sub(float a[], float b[], float r[], int len)
 {
     for (int i = 0; i < len; i++) {
         r[i] = a[i] - b[i];
     }
     return r;
-}
+}*/
 
 // 3x3 only
-static float* crossp(float a[], float b[], float r[], int len)
+/*static float* crossp(float a[], float b[], float r[], int len)
 {
     r[0] = a[1]*b[2] - a[2]*b[1];
     r[1] = a[2]*b[0] - a[0]*b[2];
@@ -72,7 +72,7 @@ static float* crossp(float a[], float b[], float r[], int len)
 
     normalize(r, r, len);
     return r;
-}
+}*/
 
 static void free_array(zarray_t *za)
 {
@@ -212,45 +212,36 @@ static void vxo_sphere_init(int quality)
 
     NTRIS = zarray_size(tris);
     uint32_t *_tri_indices = malloc(3*NTRIS*sizeof(uint32_t));
-    float* _tri_normals = malloc(3*3*NTRIS*sizeof(uint32_t));
-    float n[3] = {0,0,0};
-    float e01[3] = {0,0,0};
-    float e02[3] = {0,0,0};
-    float *v0 = NULL;
-    float *v1 = NULL;
-    float *v2 = NULL;
     for (int i = 0; i < NTRIS; i++) {
         int *tri = NULL;
         zarray_get(tris, i, &tri);
         _tri_indices[3*i+0] = (uint32_t)tri[0];
         _tri_indices[3*i+1] = (uint32_t)tri[1];
         _tri_indices[3*i+2] = (uint32_t)tri[2];
-        zarray_get(verts, tri[0], &v0);
-        zarray_get(verts, tri[1], &v1);
-        zarray_get(verts, tri[2], &v2);
-        for (int j = 0; j < 3; j++) {
-            // Get normals
-            sub(v1, v0, e01, 3);
-            sub(v2, v0, e02, 3);
-            crossp(e01, e02, n, 3);
-            _tri_normals[3*j+3*i+0] = n[0];
-            _tri_normals[3*j+3*i+1] = n[1];
-            _tri_normals[3*j+3*i+2] = n[2];
-        }
     }
 
-    // Lines
-    // XXX
+    // Lines...currently doubles them up
+    uint32_t *_line_indices = malloc(3*2*NTRIS*sizeof(uint32_t));
+    for (int i = 0; i < NTRIS; i++) {
+        int *tri = NULL;
+        zarray_get(tris, i, &tri);
+        _line_indices[3*2*i+0] = (uint32_t)tri[0];
+        _line_indices[3*2*i+1] = (uint32_t)tri[1];
+        _line_indices[3*2*i+2] = (uint32_t)tri[1];
+        _line_indices[3*2*i+3] = (uint32_t)tri[2];
+        _line_indices[3*2*i+4] = (uint32_t)tri[2];
+        _line_indices[3*2*i+5] = (uint32_t)tri[0];
+    }
 
     vertex_points = vx_resc_copyf(_verts, 3*NVERTS);
     tri_indices = vx_resc_copyui(_tri_indices, 3*NTRIS);
-    //tri_normals = vx_resc_copyf(_tri_normals, 3*3*NTRIS);
     tri_normals = vx_resc_copyf(_verts, 3*NVERTS);
+    line_indices = vx_resc_copyui(_line_indices, 3*2*NTRIS);
 
     vx_resc_inc_ref(vertex_points);
     vx_resc_inc_ref(tri_indices);
     vx_resc_inc_ref(tri_normals);
-    // XXX vx_resc_inc_ref(line_indices)
+    vx_resc_inc_ref(line_indices);
 
     // Clean up
     free_array(verts);
@@ -259,16 +250,14 @@ static void vxo_sphere_init(int quality)
     zarray_destroy(tris);
     free(_verts);
     free(_tri_indices);
-    free(_tri_normals);
 }
 
 static void vxo_sphere_destroy(void *ignored)
 {
-    // XXX Deallocate resources
     vx_resc_dec_destroy(vertex_points);
     vx_resc_dec_destroy(tri_indices);
     vx_resc_dec_destroy(tri_normals);
-    // XXX vx_resc_inc_ref(line_indices)
+    vx_resc_dec_destroy(line_indices);
 }
 
 vx_object_t* _vxo_sphere_private(vx_style_t *style, ...)
@@ -296,7 +285,6 @@ vx_object_t* _vxo_sphere_private(vx_style_t *style, ...)
                 vxo_chain_add(vc, vxo_points(vertex_points, NVERTS, sty));
                 break;
             case VXO_LINES_STYLE:
-                break;  // XXX
                 vxo_chain_add(vc, vxo_lines_indexed(vertex_points, NVERTS, line_indices, GL_LINES, sty));
                 break;
             case VXO_MESH_STYLE:

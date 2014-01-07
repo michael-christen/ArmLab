@@ -29,11 +29,11 @@ ALL = $(DESTLIB) $(DESTLIBVXGL) vx_make_font
 all: $(ALL) fonts
 
 $(LIB):  $(LIBVX_OBJS)
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@ar rc $@ $^
 
 $(LIBVXGL):  $(LIBVXGL_OBJS)
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@ar rc $@ $^
 
 $(DESTLIB): $(LIB)
@@ -43,7 +43,7 @@ $(DESTLIBVXGL): $(LIBVXGL)
 	@cp $(LIBVXGL) $(DESTLIBVXGL)
 
 $(VX_REMOTE_TEST) : vx_remote_test.o $(LIB)
-	@echo "\t[$@]"
+	@echo "\t$@"
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 # Delete the font directory to pull again
@@ -54,7 +54,7 @@ fonts :
 	mv vx_fonts fonts
 
 vx_make_font: vx_make_font.o
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@$(CC) $(CFLAGS) -o vx_make_font $< $(LDFLAGS_COMMON) $(LDFLAGS_STD)
 
 clean:

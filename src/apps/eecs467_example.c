@@ -1,6 +1,10 @@
-#include "vx_base_support.h"    // This is where a lot of the internals live
+#include "eecs467_util.h"    // This is where a lot of the internals live
 
-// === Parameter listener ===================================================
+// === Parameter listener =================================================
+// This function is handled to the parameter gui (via a parameter listener)
+// and handles events coming from the parameter gui. The parameter listener
+// also holds a void* pointer to "impl", which can point to a struct holding
+// state, etc if need be.
 void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name)
 {
     if (!strcmp("sl1", name)) {
@@ -14,7 +18,7 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
     }
 }
 
-// === Your code goes here ==================================================
+// === Your code goes here ================================================
 // The render loop handles your visualization updates. It is the function run
 // by the animate_thread. It periodically renders the contents on the
 // vx world contained by state
@@ -29,7 +33,11 @@ void* render_loop(void *data)
     if (isrc == NULL) {
         printf("Error opening device.\n");
     } else {
-        // Print out possible formats
+        // Print out possible formats. If no format was specified in the
+        // url, then format 0 is picked by default.
+        // e.g. of setting the format parameter to format 2:
+        //
+        // --url=dc1394://bd91098db0as9?fidx=2
         for (int i = 0; i < isrc->num_formats(isrc); i++) {
             image_source_format_t *ifmt = isrc->get_format(isrc, i);
             printf("%3d: %4d x %4d (%s)\n", i, ifmt->width, ifmt->height, ifmt->format);
@@ -41,7 +49,7 @@ void* render_loop(void *data)
     // when the window is closed/Ctrl+C is received.
     while (state->running) {
 
-        // Get the most recent camera frame, if applicable
+        // Get the most recent camera frame and render it to screen.
         if (isrc != NULL) {
             frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
             int res = isrc->get_frame(isrc, frmd);
@@ -49,33 +57,35 @@ void* render_loop(void *data)
                 printf("get_frame fail: %d\n", res);
             } else {
                 // Handle frame
-                image_u32_t *im = convert_to_image(frmd);
+                image_u32_t *im = image_convert_u32(frmd);
+                if (im != NULL) {
 
-                vx_resc_t *buf = vx_resc_copyui(im->buf,
-                                                im->stride*im->height);
+                    vx_resc_t *buf = vx_resc_copyui(im->buf,
+                                                    im->stride*im->height);
 
-                vx_object_t *vim = vxo_image_texflags(buf,
-                                                      im->width,
-                                                      im->height,
-                                                      GL_RGBA,
-                                                      VXO_IMAGE_FLIPY,
-                                                      VX_TEX_MIN_FILTER |
-                                                      VX_TEX_MAG_FILTER);
+                    vx_object_t *vim = vxo_image_texflags(buf,
+                                                          im->width,
+                                                          im->height,
+                                                          GL_RGBA,
+                                                          VXO_IMAGE_FLIPY,
+                                                          VX_TEX_MIN_FILTER |
+                                                          VX_TEX_MAG_FILTER);
 
-                vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
-                                   vxo_chain(vxo_mat_scale(1.0/10),
-                                             vxo_mat_translate3(-im->width/2,
-                                                                -im->height/2,
-                                                                0),
-                                             vim));
-                vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
-                image_u32_destroy(im);
+                    vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
+                                       vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
+                                                 vim));
+                    vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
+                    //printf(".");
+                    fflush(NULL);
+                    image_u32_destroy(im);
+                }
             }
 
             fflush(stdout);
             isrc->release_frame(isrc, frmd);
         }
-        // Example rendering
+
+        // Example rendering of vx primitives
         double rad = (vx_mtime() % 5000) * 2 * M_PI / 5e3;   // [0,2PI]
         double osc = ((vx_mtime() % 5000) / 5e3) * 2 - 1;    // [-1, 1]
 
@@ -92,7 +102,7 @@ void* render_loop(void *data)
                                     vxo_sphere(vxo_mesh_style(vx_blue)));
 
         // Then, we add this object to a buffer awaiting a render order
-        vx_buffer_add_back(vx_world_get_buffer(state->world, "rot-square"), vo);
+        vx_buffer_add_back(vx_world_get_buffer(state->world, "rot-sphere"), vo);
 
         // Now we will render a red box that translates back and forth. This
         // time, there is no rotation of our coordinate frame, so the box will
@@ -107,7 +117,7 @@ void* render_loop(void *data)
         vx_buffer_add_back(vx_world_get_buffer(state->world, "osc-square"), vo);
 
         // Now, we update both buffers
-        vx_buffer_swap(vx_world_get_buffer(state->world, "rot-square"));
+        vx_buffer_swap(vx_world_get_buffer(state->world, "rot-sphere"));
         vx_buffer_swap(vx_world_get_buffer(state->world, "osc-square"));
 
         usleep(1000000/fps);
@@ -132,7 +142,7 @@ int main(int argc, char **argv)
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help"))
     {
-        printf("Usage: %s [options]\n\n", argv[0]);
+        printf("Usage: %s [--url=CAMERAURL] [other options]\n\n", argv[0]);
         getopt_do_usage(gopt);
         exit(1);
     }
@@ -143,9 +153,12 @@ int main(int argc, char **argv)
 
     state_t *state = state_create();
 
-    // Set up the imagesource
+    // Set up the imagesource. This looks for a camera url specified on
+    // the command line and, if none is found, enumerates a list of all
+    // cameras imagesource can find and picks the first url it fidns.
     if (strncmp(getopt_get_string(gopt, "url"), "", 1)) {
         state->url = getopt_get_string(gopt, "url");
+        printf("URL: %s\n", state->url);
     } else {
         // No URL specified. Show all available and then
         // use the first
@@ -155,7 +168,6 @@ int main(int argc, char **argv)
         for (int i = 0; urls[i] != NULL; i++)
             printf("  %3d: %s\n", i, urls[i]);
 
-        // XXX Shouldn't require a camera
         if (urls[0]==NULL) {
             printf("Found no cameras.\n");
             return -1;
@@ -186,7 +198,7 @@ int main(int argc, char **argv)
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
-    my_listener->impl == NULL;
+    my_listener->impl = NULL;
     my_listener->param_changed = my_param_changed;
     pg_add_listener(pg, my_listener);
 

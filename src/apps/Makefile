@@ -9,7 +9,7 @@ LIB = ../../lib
 
 all: $(VX_BASE)
 
-$(VX_BASE) : vx_base_support.o vx_base.o
+$(VX_BASE) : eecs467_util.o eecs467_example.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 

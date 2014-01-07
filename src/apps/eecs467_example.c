@@ -1,4 +1,4 @@
-#include "vx_base_support.h"    // This is where a lot of the internals live
+#include "eecs467_util.h"    // This is where a lot of the internals live
 
 // === Parameter listener =================================================
 // This function is handled to the parameter gui (via a parameter listener)
@@ -75,7 +75,7 @@ void* render_loop(void *data)
                                        vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
                                                  vim));
                     vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
-                    printf(".");
+                    //printf(".");
                     fflush(NULL);
                     image_u32_destroy(im);
                 }

@@ -1,5 +1,5 @@
-#ifndef VX_BASH_SUPPORT_H
-#define VX_BASE_SUPPORT_H
+#ifndef EECS467_UTIL_H
+#define EECS467_UTIL_H
 
 // XXX This is evil
 #include <gtk/gtk.h>

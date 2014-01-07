@@ -183,7 +183,7 @@ int main(int argc, char **argv)
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
-    my_listener->impl == NULL;
+    my_listener->impl = NULL;
     my_listener->param_changed = my_param_changed;
     pg_add_listener(pg, my_listener);
 

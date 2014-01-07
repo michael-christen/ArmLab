@@ -51,8 +51,6 @@ int main(int argc, char *argv[])
 //    setlinebuf(stdout);
 
     while(1) {
-        void *imbuf = NULL;
-        int imbuflen = 0;
         frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
         int res = isrc->get_frame(isrc, frmd);
         if (res < 0) {

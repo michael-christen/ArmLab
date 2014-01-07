@@ -32,7 +32,7 @@ typedef struct
 {
     int running;
 
-    char *url;
+    const char *url;
 
     vx_application_t app;
 

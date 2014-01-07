@@ -1518,7 +1518,7 @@ static void print_info(image_source_t *isrc)
     // trigger info
     {
         printf("Trigger:\n");
-        dc1394error_t res = 0;
+//        dc1394error_t res = 0;
 
         dc1394trigger_mode_t mode;
         if (dc1394_external_trigger_get_mode(impl->cam, &mode) == DC1394_SUCCESS) {

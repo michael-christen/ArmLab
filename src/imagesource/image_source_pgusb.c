@@ -605,7 +605,7 @@ static void callback(struct libusb_transfer *transfer)
     image_source_t *isrc = (image_source_t*) transfer->user_data;
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
-    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
+//    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
 
     if (impl->current_frame_index < 0) {
         impl->current_frame_index = get_empty_frame(impl);
@@ -883,7 +883,7 @@ static int start(image_source_t *isrc)
 
         do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x44, &tmp, 1);
         uint32_t updated_packet_size = (tmp >> 16) & 0xffff;
-        uint32_t updated_recommended_packet_size = (tmp) & 0xffff;
+//        uint32_t updated_recommended_packet_size = (tmp) & 0xffff;
 
         if (updated_packet_size != impl->packet_size) {
             printf("WARNING: Wasn't able to change packet size from %d to %d; it's %d\n",
@@ -1012,7 +1012,7 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
-    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
+//    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
 
     int idx = get_ready_frame(impl);
 

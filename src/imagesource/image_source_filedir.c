@@ -15,7 +15,7 @@
 #include "url_parser.h"
 
 #include "common/string_util.h"
-#include "common/varray.h"
+#include "common/zarray.h"
 
 #include <png.h>
 
@@ -31,7 +31,7 @@ struct impl_filedir
     int timescale;
     int loop;
 
-    varray_t *files;
+    zarray_t *files;
     int pos;
 
     uint64_t last_frame_utime;
@@ -208,7 +208,6 @@ static int get_frame_png(image_source_t *isrc, frame_data_t *frmd, const char *f
 
     int width = png_get_image_width(png_ptr, info_ptr);
     int height = png_get_image_height(png_ptr, info_ptr);
-    png_byte color_type = png_get_color_type(png_ptr, info_ptr);
     png_byte bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 
     //number_of_passes = png_set_interlace_handling(png_ptr);
@@ -315,7 +314,10 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
 
-    if (impl->pos == varray_size(impl->files)) {
+  tryagain:
+    memset(frmd, 0, sizeof(frame_data_t));
+
+    if (impl->pos == zarray_size(impl->files)) {
         if (impl->loop)
             impl->pos = 0;
         else {
@@ -324,13 +326,18 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
         }
     }
 
-    const char *path = varray_get(impl->files, impl->pos);
+    const char *path;
+    zarray_get(impl->files, impl->pos, &path);
     impl->pos++;
 
     if (str_ends_with(path, ".png")) {
         int res = get_frame_png(isrc, frmd, path);
         if (res)
             return res;
+    } else {
+        printf("Unknown image type %s\n", path);
+        impl->pos++;
+        goto tryagain;
     }
 
     int64_t utime = utime_now();
@@ -342,11 +349,14 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
         int64_t goal_delta_utime = (uint64_t) (1000000 / impl->fps);
         goal_utime = impl->last_frame_utime + goal_delta_utime;
     } else {
-        if (impl->pos == 0 || impl->pos >= varray_size(impl->files)) {
+        if (impl->pos == 0 || impl->pos >= zarray_size(impl->files)) {
             goal_utime = utime;
         } else {
-            uint32_t t0 = get_time_code(varray_get(impl->files, impl->pos-1));
-            uint32_t t1 = get_time_code(varray_get(impl->files, impl->pos));
+            const char *path;
+            zarray_get(impl->files, impl->pos-1, &path);
+            uint32_t t0 = get_time_code(path);
+            zarray_get(impl->files, impl->pos, &path);
+            uint32_t t1 = get_time_code(path);
             goal_utime = impl->last_frame_utime + impl->timescale * (t1 - t0);
         }
     }
@@ -392,6 +402,7 @@ static void print_info(image_source_t *isrc)
 {
 }
 
+// caller must allocate 'path'; we will then own that memory.
 static void add_path(image_source_t *isrc, char *path)
 {
     assert(isrc->impl_type == IMPL_TYPE);
@@ -399,7 +410,9 @@ static void add_path(image_source_t *isrc, char *path)
 
     if (str_ends_with(path, ".png")) {
         printf("image_source_filedir: adding path: %s\n", path);
-        varray_add(impl->files, path);
+        zarray_add(impl->files, &path);
+    } else {
+        printf("ignoring unknown file type: %s\n", path);
     }
 }
 
@@ -421,7 +434,7 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
     impl_filedir_t *impl = calloc(1, sizeof(impl_filedir_t));
     isrc->impl = impl;
     impl->fmt = calloc(1, sizeof(image_source_format_t));
-    impl->files = varray_create();
+    impl->files = zarray_create(sizeof(char*));
 
     if (!strcmp(url_parser_get_protocol(urlp), "file://")) {
         add_path(isrc, strdup(url_parser_get_location(urlp)));
@@ -440,23 +453,26 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
             if (entry == NULL)
                 break;
 
+            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+                continue;
+
             add_path(isrc, sprintf_alloc("%s/%s", location, entry->d_name));
         }
 
         closedir(dir);
     }
 
-    varray_sort(impl->files, mysort);
-    varray_map(impl->files, (void*) puts);
+    zarray_sort(impl->files, mysort);
+    zarray_vmap(impl->files, (void*) puts);
 
-    if (varray_size(impl->files) == 0) {
+    if (zarray_size(impl->files) == 0) {
         printf("image_source_filedir: didn't find any files.");
     }
 
-    // fill in fmt
+    // fill in fmt. (These will be overwritten later.)
     impl->fmt->width = 640;
     impl->fmt->height = 480;
-    impl->fmt->format = "RGB";
+    impl->fmt->format = strdup("RGB");
 
     impl->fps = 10;
     impl->timescale = 0;

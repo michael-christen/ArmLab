@@ -29,8 +29,8 @@ endif
 all: $(ALL)
 
 istest: main.o $(IMAGESOURCE_OBJS)
-	@echo "     istest"; \
-	gcc -L../../lib main.o $(IMAGESOURCE_OBJS) -o istest -ldc1394 -lc -lcommon -lpng -lpthread -lusb-1.0 -lm
+	@echo "\t$@"
+	@gcc -L../../lib main.o $(IMAGESOURCE_OBJS) -o istest -ldc1394 -lc -lcommon -lpng -lpthread -lusb-1.0 -lm
 
 tcpstream: tcp_image_streamer.c
 	@gcc -o tcpstream -std=gnu99 tcp_image_streamer.c -lc

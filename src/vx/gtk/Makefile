@@ -19,19 +19,19 @@ $(DESTLIB_GTK) : $(LIB_GTK)
 	@cp $(LIB_GTK) $(DESTLIB_GTK)
 
 $(LIB_GTK):  $(LIBVX_GTK_OBJS)
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@ar rc $@ $^
 
 $(VX_DEMO) : vx_demo.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 $(VX_SCENE_VIEWER) : vx_scene_viewer.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 $(VX_REMOTE_VIEWER) : vx_remote_viewer.o $(LIB_GTK)
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 
 clean:

@@ -166,15 +166,15 @@ LDFLAGS_LIBCAM:=$(LIB_PATH)/libcam.a \
 LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a -ldc1394 -lc -lpng -lusb-1.0
 
 %.o: %.c %.h
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@$(CC) $(CFLAGS) -c $<
 
 %.o: %.c
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@$(CC) $(CFLAGS) -c $<
 
 %.o: %.cpp
-	@echo "\t[$@]"
+	@echo "\t$@"
 	@g++ -c -o $@ $< $(CFLAGS_CXX)
 
 

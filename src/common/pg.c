@@ -106,7 +106,10 @@ void pg_add_listener(parameter_gui_t *pg, parameter_listener_t *listener)
 {
     void *old_key = NULL;
     void *old_value = NULL;
-    int res = zhash_put(pg->listeners, &listener, &listener, &old_key, &old_value);
+    if (zhash_put(pg->listeners, &listener, &listener, &old_key, &old_value)) {
+        printf("warning: listener added multiple times to parameter gui\n");
+    }
+
 }
 
 void pg_remove_listener(parameter_gui_t *pg, parameter_listener_t *listener)

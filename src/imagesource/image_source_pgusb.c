@@ -532,12 +532,13 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
 
-    const char *format_name = desired_format;
+    char *format_name = strdup(desired_format);
     int colonpos = strpos(desired_format, ":");
     int xpos = strpos(desired_format, "x");
     int width = -1;
     int height = -1;
     if (colonpos >= 0 && xpos > colonpos) {
+        free(format_name);
         format_name = strndup(desired_format, colonpos);
         char *swidth = strndup(&desired_format[colonpos+1], xpos-colonpos-1);
         char *sheight = strdup(&desired_format[xpos+1]);
@@ -582,6 +583,7 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
 
     impl->current_format_idx = fidx;
 
+    free(format_name);
     return 0;
 }
 
@@ -2278,24 +2280,24 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
 
     if (libusb_open(impl->dev, &impl->handle) < 0) {
         printf("error\n");
-        return NULL;
+        goto error;
     }
 
     if (libusb_set_configuration(impl->handle, 1) < 0) {
         printf("error\n");
-        return NULL;
+        goto error;
     }
 
     uint32_t magic;
     if (do_read(impl->handle, CONFIG_ROM_BASE + 0x404, &magic, 1) != 1)
-        return NULL;
+        goto error;
     if (magic != 0x31333934)
-        return NULL;
+        goto error;
 
     if (1) {
         uint32_t tmp;
         if (do_read(impl->handle, CONFIG_ROM_BASE + 0x424, &tmp, 1) != 1)
-            return NULL;
+            goto error;
 
         assert((tmp>>24)==0xd1);
         impl->unit_directory_offset = 0x424 + (tmp & 0x00ffffff)*4;
@@ -2306,7 +2308,7 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
     if (1) {
         uint32_t tmp;
         if (do_read(impl->handle, CONFIG_ROM_BASE + impl->unit_directory_offset + 0x0c, &tmp, 1) != 1)
-            return NULL;
+            goto error;
 
         assert((tmp>>24)==0xd4);
         impl->unit_dependent_directory_offset = impl->unit_directory_offset + 0x0c + (tmp & 0x00ffffff)*4;
@@ -2317,7 +2319,7 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
     if (1) {
         uint32_t tmp;
         if (do_read(impl->handle, CONFIG_ROM_BASE + impl->unit_dependent_directory_offset + 0x4, &tmp, 1) != 1)
-            return NULL;
+            goto error;
 
         assert((tmp>>24)==0x40);
         impl->command_regs_base = 4*(tmp&0x00ffffff);
@@ -2338,7 +2340,7 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
 
         uint32_t v_mode_inq_7;
         if (do_read(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x019c, &v_mode_inq_7, 1) != 1)
-            return NULL;
+            goto error;
 
         printf("v_mode_inq_7: %08x\n", v_mode_inq_7);
 
@@ -2349,7 +2351,7 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
 
                 uint32_t mode_csr;
                 if (do_read(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x2e0 + mode*4, &mode_csr, 1) != 1)
-                    return NULL;
+                    goto error;
 
                 mode_csr *= 4;
 
@@ -2358,7 +2360,7 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
                 int nquads = 32;
                 uint32_t quads[32];
                 if (do_read(impl->handle, CONFIG_ROM_BASE + mode_csr, quads, nquads) != nquads)
-                    return NULL;
+                    goto error;
 
                 uint32_t cmodes = quads[5];
                 for (int cmode = 0; cmode < 11; cmode++) {
@@ -2451,5 +2453,9 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
     isrc->close = my_close;
 
     return isrc;
+
+  error:
+    free(isrc);
+    return NULL;
 }
 

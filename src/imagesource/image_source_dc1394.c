@@ -219,12 +219,13 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
 
-    const char *format_name = desired_format;
+    char *format_name = strdup(desired_format);
     int colonpos = strpos(desired_format, ":");
     int xpos = strpos(desired_format, "x");
     int width = -1;
     int height = -1;
     if (colonpos >= 0 && xpos > colonpos) {
+        free(format_name);
         format_name = strndup(desired_format, colonpos);
         char *swidth = strndup(&desired_format[colonpos+1], xpos-colonpos-1);
         char *sheight = strdup(&desired_format[xpos+1]);
@@ -268,7 +269,7 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
     }
 
     impl->current_format_idx = fidx;
-
+    free(format_name);
     return 0;
 }
 
@@ -1715,8 +1716,9 @@ image_source_t *image_source_dc1394_open(url_parser_t *urlp)
     impl->num_buffers = 2;
 
     impl->dc1394 = dc1394_new();
-    if (!impl->dc1394)
-        return NULL;
+    if (!impl->dc1394) {
+        goto fail;
+    }
 
     // now open our desired camera.
     impl->cam = dc1394_camera_new(impl->dc1394, guid);
@@ -1792,6 +1794,7 @@ image_source_t *image_source_dc1394_open(url_parser_t *urlp)
 
 fail:
     printf("image_source_dc1394_open: failure\n");
+    free(isrc);
     return NULL;
 }
 

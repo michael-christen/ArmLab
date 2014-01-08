@@ -332,6 +332,7 @@ static int add_format(image_source_t *isrc, struct v4l2_fmtdesc *rfmt, int width
     if (ioctl(impl->fd, VIDIOC_TRY_FMT, vfmt) < 0) {
         perror("ioctl");
         fprintf(stderr, "Error: VIDIOC_TRY_FMT failed\n");
+        free(vfmt);
         return -1;
     }
 

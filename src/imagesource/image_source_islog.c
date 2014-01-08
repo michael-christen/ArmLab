@@ -274,6 +274,7 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
                 return res;
         } else {
             usleep(10000); // prevent a get_frame spin.
+            free(new_frame);
             return res;
         }
     }

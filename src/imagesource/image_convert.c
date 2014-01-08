@@ -15,6 +15,33 @@ static int clamp(int v)
     return v;
 }
 
+static image_u32_t *convert_bgra(image_source_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+    uint32_t a = 0xff << 24;
+
+    uint32_t *bgra = (uint32_t*)(frmd->data);
+
+    // bgra ==> abgr
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            uint32_t v = bgra[y*width+x];
+            int r = (v >> 16) & 0xff;
+            int g = (v >> 8) & 0xff;
+            int b = (v >> 0) & 0xff;
+
+            im->buf[y*stride+x] = r | (g<<8) | (b<<16) | a;
+        }
+    }
+
+    return im;
+}
+
 static image_u32_t *convert_rgb24(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
@@ -261,6 +288,7 @@ image_u32_t *image_convert_u32(image_source_data_t *frmd)
 {
     if (!strcmp("BAYER_GBRG", frmd->ifmt.format)) {
         return debayer_gbrg(frmd);
+
     } else if (!strcmp("GRAY8", frmd->ifmt.format)) {
         return gray8(frmd);
 
@@ -270,11 +298,16 @@ image_u32_t *image_convert_u32(image_source_data_t *frmd)
 //    } else if (!strcmp("BAYER_GRBG", frmd->ifmt.format)) {
 
 //    } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
+
     } else if (!strcmp("RGB", frmd->ifmt.format)) {
         return convert_rgb24(frmd);
 
+    } else if (!strcmp("BGRA", frmd->ifmt.format)) {
+        return convert_bgra(frmd);
+
     } else if (!strcmp("YUYV", frmd->ifmt.format)) {
         return convert_yuyv(frmd);
+
     } else {
         printf("ERR: Format %s not supported\n", frmd->ifmt.format);
     }

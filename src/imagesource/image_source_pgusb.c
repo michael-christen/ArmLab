@@ -80,7 +80,7 @@ struct transfer_info
 struct format
 {
     int width, height;
-    char format[32];
+    char format[IMAGE_SOURCE_MAX_FORMAT_LENGTH];
 
     uint32_t format7_mode_idx;
     uint32_t color_coding_idx;

@@ -82,6 +82,7 @@ void make_font(const char *basename)
 
     fwrite(cvxfbuf, 1, cvxfbuflen, f);
     fclose(f);
+    free(bparambuf);
 }
 
 int main(int argc, char *argv[])

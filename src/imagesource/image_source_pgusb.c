@@ -1427,6 +1427,8 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
     // create a feature to control the mode
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-mode", name);
         f.name = strdup(buf);
@@ -1435,7 +1437,7 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
         f.get_type = simple_mode_get_type;
         f.get_value = simple_mode_get_value;
         f.set_value = simple_mode_set_value;
-        f.absolute_csr = absolute_csr;
+        f.absolute_csr = absolute ? absolute_csr : 0;
         append_feature(impl, f);
     }
 
@@ -1444,6 +1446,8 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
         // hack for white balance, which has two features.
 
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-ub", name);
         f.name = strdup(buf);
@@ -1473,6 +1477,8 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
 
         if ((d & (1 << 24))) {
             struct feature f;
+            memset(&f, 0, sizeof(struct feature));
+
             char buf[128];
             sprintf(buf, "%s", name);
             f.name = strdup(buf);
@@ -1962,6 +1968,8 @@ void add_trigger_feature(image_source_t *isrc, const char *name, uint32_t addr, 
     // create a feature to control the mode AND polarity
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-enabled", name);
         f.name = strdup(buf);
@@ -1976,6 +1984,8 @@ void add_trigger_feature(image_source_t *isrc, const char *name, uint32_t addr, 
     // create a feature to control source
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-source", name);
         f.name = strdup(buf);
@@ -1990,6 +2000,8 @@ void add_trigger_feature(image_source_t *isrc, const char *name, uint32_t addr, 
     // create a feature to control mode
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-mode", name);
         f.name = strdup(buf);
@@ -2004,6 +2016,8 @@ void add_trigger_feature(image_source_t *isrc, const char *name, uint32_t addr, 
     // create a feature for software triggering
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s-software", name);
         f.name = strdup(buf);
@@ -2127,6 +2141,8 @@ void add_bit_field_feature(image_source_t *isrc, const char *name, uint32_t addr
     // create a feature to control all embedded frame info
     if (1) {
         struct feature f;
+        memset(&f, 0, sizeof(struct feature));
+
         char buf[128];
         sprintf(buf, "%s", name);
         f.name = strdup(buf);

@@ -168,8 +168,8 @@ static void process_deallocations(vx_gl_renderer_t * state)
         }
 
         // There is always a resource for each guid.
-        assert(guid == vr->id);
         if (vr != NULL) {
+            assert(guid == vr->id);
             if (verbose > 1) printf("Attempting deallocating resource GUID=%"PRIu64"\n", vr->id);
             vx_resc_dec_destroy(vr);
         } else {

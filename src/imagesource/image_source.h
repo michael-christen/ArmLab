@@ -9,20 +9,28 @@
 
 #include "url_parser.h"
 
+#define IMAGE_SOURCE_MAX_FORMAT_LENGTH 32
+
 typedef struct image_source_format image_source_format_t;
 struct image_source_format
 {
+    // dimensions of the image in pixels
     int   width, height;
-    char  *format; // human readable string. Use fourcc codes whenever possible
 
-    void  *priv; // for use by the implementation.
+    // human readable string. Use fourcc codes whenever possible
+    char  format[IMAGE_SOURCE_MAX_FORMAT_LENGTH];
 };
 
-typedef struct frame_data frame_data_t;
-struct frame_data
+typedef struct image_source_data image_source_data_t;
+struct image_source_data
 {
-    image_source_format_t *ifmt;
+    image_source_format_t ifmt;
+
+    // acquisition time of the frame (to the best of the driver's
+    // knowledge), relative to this computer's clock.
     uint64_t utime;
+
+    // the image data.
     void *data;
     int  datalen;
 
@@ -35,22 +43,38 @@ struct image_source
     int   impl_type;
     void *impl;
 
+    ///////////////////////////////////////////////////
+    // Formats
+
+    // how many formats are supported by this camera?
     int (*num_formats)(image_source_t *isrc);
-    image_source_format_t *(*get_format)(image_source_t *isrc, int idx);
+
+    // user allocates an image_source_format and the driver fills it in.
+    // note: formats can change over time, so this (at best) is a guess.
+    void (*get_format)(image_source_t *isrc, int idx, image_source_format_t *fmt);
     int (*set_format)(image_source_t *isrc, int idx);
     int (*set_named_format)(image_source_t *isrc, const char *desired_format);
+    // return the index of the current format.
     int (*get_current_format)(image_source_t *isrc);
 
+    ///////////////////////////////////////////////////
+    // Acquisition control
+
     int (*start)(image_source_t *isrc);
-    int (*get_frame)(image_source_t *isrc, frame_data_t * frmd);
-    int (*release_frame)(image_source_t *isrc, frame_data_t *frmd);
+    int (*get_frame)(image_source_t *isrc, image_source_data_t *frmd);
+    int (*release_frame)(image_source_t *isrc, image_source_data_t *frmd);
     int (*stop)(image_source_t *isrc);
+
+    ///////////////////////////////////////////////////
+    // Feature control
 
     int (*num_features)(image_source_t *isrc);
     const char* (*get_feature_name)(image_source_t *isrc, int idx);
     int (*is_feature_available)(image_source_t *isrc, int idx);
 
-    // string is allocated by driver, to be freed by user.
+    // string is allocated by driver, to be freed by user. (The
+    // options available for a feature can change depending on the
+    // settings of other features.)
     // "b"  boolean
     // "i"  integer
     // "i,min,max"
@@ -61,6 +85,7 @@ struct image_source
     char* (*get_feature_type)(image_source_t *isrc, int idx);
 
     double (*get_feature_value)(image_source_t *isrc, int idx);
+
     // returns non-zero on error
     int (*set_feature_value)(image_source_t *isrc, int idx, double v);
 
@@ -75,6 +100,7 @@ image_source_t *image_source_dc1394_open(url_parser_t *urlp);
 image_source_t *image_source_islog_open(url_parser_t *urlp);
 image_source_t *image_source_pgusb_open(url_parser_t *urlp);
 image_source_t *image_source_filedir_open(url_parser_t *urlp);
+image_source_t *image_source_tcp_open(url_parser_t *urlp);
 
 char** image_source_enumerate();
 void image_source_enumerate_free(char **b);

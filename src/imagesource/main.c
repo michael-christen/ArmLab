@@ -37,8 +37,9 @@ int main(int argc, char *argv[])
     }
 
     for (int i = 0; i < isrc->num_formats(isrc); i++) {
-        image_source_format_t *ifmt = isrc->get_format(isrc, i);
-        printf("%3d: %4d x %4d (%s)\n", i, ifmt->width, ifmt->height, ifmt->format);
+        image_source_format_t ifmt;
+        isrc->get_format(isrc, i, &ifmt);
+        printf("%3d: %4d x %4d (%s)\n", i, ifmt.width, ifmt.height, ifmt.format);
     }
 
     if (1) {
@@ -51,7 +52,7 @@ int main(int argc, char *argv[])
 //    setlinebuf(stdout);
 
     while(1) {
-        frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
+        image_source_data_t * frmd = calloc(1, sizeof(image_source_data_t));
         int res = isrc->get_frame(isrc, frmd);
         if (res < 0) {
             printf("get_frame fail: %d\n", res);

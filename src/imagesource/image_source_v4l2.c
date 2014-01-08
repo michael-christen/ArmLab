@@ -22,6 +22,13 @@ struct buffer {
         size_t                  length;
 };
 
+struct format
+{
+    int                    width, height;
+    char                   format[5];
+    struct v4l2_format    *v4l2format;
+};
+
 typedef struct impl_v4l2 impl_v4l2_t;
 struct impl_v4l2
 {
@@ -30,26 +37,12 @@ struct impl_v4l2
     int fd;
 
     int                     nformats;
-    image_source_format_t  **formats;
-    // formats: we put a pointer to struct v4l2_format in the priv field
+    struct format           *formats;
 
     int                     current_format_idx;
 
     struct buffer           buffers[NUM_BUFFERS];
 };
-
-/** Creates a fourcc string **/
-static char* int2fourcc(uint32_t fcc)
-{
-    char *result = malloc(5);
-    result[0] = fcc & 0xff;
-    result[1] = (fcc >> 8) & 0xff;
-    result[2] = (fcc >> 16) & 0xff;
-    result[3] = (fcc >> 24) & 0xff;
-    result[4] = 0;
-
-    return result;
-}
 
 static int num_formats(image_source_t *isrc)
 {
@@ -59,13 +52,17 @@ static int num_formats(image_source_t *isrc)
     return impl->nformats;
 }
 
-static image_source_format_t *get_format(image_source_t *isrc, int idx)
+static void get_format(image_source_t *isrc, int idx, image_source_format_t *fmt)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_v4l2_t *impl = (impl_v4l2_t*) isrc->impl;
 
     assert(idx>=0 && idx < impl->nformats);
-    return impl->formats[idx];
+
+    memset(fmt, 0, sizeof(image_source_format_t));
+    fmt->width = impl->formats[idx].width;
+    fmt->height = impl->formats[idx].height;
+    strcpy(fmt->format, impl->formats[idx].format);
 }
 
 static int get_current_format(image_source_t *isrc)
@@ -97,7 +94,7 @@ static int set_format(image_source_t *isrc, int idx)
         return -1;
     }
 
-    if (ioctl (impl->fd, VIDIOC_S_FMT, impl->formats[idx]->priv) < 0) {
+    if (ioctl (impl->fd, VIDIOC_S_FMT, impl->formats[idx].v4l2format) < 0) {
         printf("set format failed\n");
         return -1;
     }
@@ -226,7 +223,7 @@ static int start(image_source_t *isrc)
     return 0;
 }
 
-static int get_frame(image_source_t *isrc, frame_data_t * frmd)//void **imbuf, int *buflen)
+static int get_frame(image_source_t *isrc, image_source_data_t * frmd)//void **imbuf, int *buflen)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_v4l2_t *impl = (impl_v4l2_t*) isrc->impl;
@@ -272,13 +269,16 @@ static int get_frame(image_source_t *isrc, frame_data_t * frmd)//void **imbuf, i
 
     frmd->datalen = buf.bytesused;
     frmd->data = impl->buffers[buf.index].start;
-    frmd->ifmt = impl->formats[impl->current_format_idx];
+    frmd->ifmt.width = impl->formats[impl->current_format_idx].width;
+    frmd->ifmt.height = impl->formats[impl->current_format_idx].height;
+    strcpy(frmd->ifmt.format, impl->formats[impl->current_format_idx].format);
+
     frmd->utime = utime_now(); // Can we get better timing than this from v4l2?
 
     return 0;
 }
 
-static int release_frame(image_source_t *isrc, frame_data_t *frmd)
+static int release_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_v4l2_t *impl = (impl_v4l2_t*) isrc->impl;
@@ -341,16 +341,15 @@ static int add_format(image_source_t *isrc, struct v4l2_fmtdesc *rfmt, int width
         vfmt->fmt.pix.bytesperline =  vfmt->fmt.pix.width * bpp / 8;
     }
 
-    impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(image_source_format_t*));
-
-    image_source_format_t *ifmt = calloc(1, sizeof(image_source_format_t));
-    ifmt->width = vfmt->fmt.pix.width;
-    ifmt->height = vfmt->fmt.pix.height;
-    ifmt->format = int2fourcc((uint32_t) rfmt->pixelformat);
-
-    impl->formats[impl->nformats] = ifmt;
-
-    impl->formats[impl->nformats]->priv = vfmt;
+    impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(struct format));
+    impl->formats[impl->nformats].width = vfmt->fmt.pix.width;
+    impl->formats[impl->nformats].height = vfmt->fmt.pix.height;
+    impl->formats[impl->nformats].v4l2format = vfmt;
+    impl->formats[impl->nformats].format[0] = rfmt->pixelformat & 0xff;
+    impl->formats[impl->nformats].format[1] = (rfmt->pixelformat >> 8) & 0xff;
+    impl->formats[impl->nformats].format[2] = (rfmt->pixelformat >> 16) & 0xff;
+    impl->formats[impl->nformats].format[3] = (rfmt->pixelformat >> 24) & 0xff;
+    impl->formats[impl->nformats].format[4] = 0;
 
     impl->nformats++;
 
@@ -376,7 +375,7 @@ static void print_info(image_source_t *isrc)
     printf("\t#Formats: %d\n", impl->nformats);
     printf("\tCurrent format: %d\n", impl->current_format_idx);
     for (int i=0; i < impl->nformats; i++) {
-        image_source_format_t *format = impl->formats[i];
+        struct format *format = &impl->formats[i];
 
         printf("\tFormat %d:\n", i);
         printf("\t\tWidth: %d\n", format->width);

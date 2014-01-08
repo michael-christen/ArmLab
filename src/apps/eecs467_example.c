@@ -39,8 +39,9 @@ void* render_loop(void *data)
         //
         // --url=dc1394://bd91098db0as9?fidx=2
         for (int i = 0; i < isrc->num_formats(isrc); i++) {
-            image_source_format_t *ifmt = isrc->get_format(isrc, i);
-            printf("%3d: %4d x %4d (%s)\n", i, ifmt->width, ifmt->height, ifmt->format);
+            image_source_format_t ifmt;
+            isrc->get_format(isrc, i, &ifmt);
+            printf("%3d: %4d x %4d (%s)\n", i, ifmt.width, ifmt.height, ifmt.format);
         }
         isrc->start(isrc);
     }
@@ -51,7 +52,7 @@ void* render_loop(void *data)
 
         // Get the most recent camera frame and render it to screen.
         if (isrc != NULL) {
-            frame_data_t * frmd = calloc(1, sizeof(frame_data_t));
+            image_source_data_t * frmd = calloc(1, sizeof(image_source_data_t));
             int res = isrc->get_frame(isrc, frmd);
             if (res < 0) {
                 printf("get_frame fail: %d\n", res);

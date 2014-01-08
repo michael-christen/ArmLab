@@ -36,8 +36,8 @@ image_source_t *image_source_open(const char *url)
         isrc = image_source_filedir_open(urlp);
     }  else if (!strcmp(protocol, "dir://")) {
         isrc = image_source_filedir_open(urlp);
-    }  else if (!strcmp(protocol, "tcp://")) {
-        isrc = image_source_tcp_open(urlp);
+//    }  else if (!strcmp(protocol, "tcp://")) {
+//        isrc = image_source_tcp_open(urlp);
     }
 
     // handle parameters

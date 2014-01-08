@@ -269,16 +269,11 @@ image_u32_t *image_convert_u32(image_source_data_t *frmd)
 
 //    } else if (!strcmp("BAYER_GRBG", frmd->ifmt.format)) {
 
-<<<<<<< HEAD
 //    } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
-    } else if (!strcmp("RGB", frmd->ifmt->format)) {
+    } else if (!strcmp("RGB", frmd->ifmt.format)) {
         return convert_rgb24(frmd);
-    } else if (!strcmp("YUYV", frmd->ifmt->format)) {
-=======
-//    } else if (!strcmp("GRAY16", frmd->ifmt.format)) {
 
     } else if (!strcmp("YUYV", frmd->ifmt.format)) {
->>>>>>> dac0bb16a1ea2f182b3178e8363f71c28c3631f9
         return convert_yuyv(frmd);
     } else {
         printf("ERR: Format %s not supported\n", frmd->ifmt.format);

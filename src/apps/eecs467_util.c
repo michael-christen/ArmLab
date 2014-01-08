@@ -1,69 +1,72 @@
 #include "eecs467_util.h"
 
-void display_finished(vx_application_t *app, vx_display_t *disp)
+struct eecs467_default_implementation
 {
-    state_t *state = app->impl;
-    pthread_mutex_lock(&state->mutex);
+    vx_world_t *world;
+    pthread_mutex_t mutex;
 
-    vx_layer_t *layer = NULL;
-    zhash_remove(state->layers, &disp, NULL, &layer);
-    vx_layer_destroy(layer);
+    zhash_t *layers;
+};
 
-    pthread_mutex_unlock(&state->mutex);
+eecs467_default_implementation_t *eecs467_default_implementation_create(vx_world_t *world)
+{
+    eecs467_default_implementation_t *impl = calloc(1, sizeof(eecs467_default_implementation_t));
+    impl->world = world;
+    impl->layers = zhash_create(sizeof(vx_display_t*), sizeof(vx_layer_t*), zhash_ptr_hash, zhash_ptr_equals);
+
+    pthread_mutex_init(&impl->mutex, NULL);
+
+    return impl;
 }
 
-void display_started(vx_application_t *app, vx_display_t *disp)
+void eecs467_default_display_started(vx_application_t *app, vx_display_t *disp)
 {
-    state_t *state = app->impl;
+    eecs467_default_implementation_t *impl = app->impl;
 
-    vx_layer_t *layer = vx_layer_create(state->world);
+    vx_layer_t *layer = vx_layer_create(impl->world);
     vx_layer_set_display(layer, disp);
 
-    pthread_mutex_lock(&state->mutex);
+    pthread_mutex_lock(&impl->mutex);
     // store a reference to the world and layer that we associate with each
     // vx_display_t
-    zhash_put(state->layers, &disp, &layer, NULL, NULL);
-    pthread_mutex_unlock(&state->mutex);
+    zhash_put(impl->layers, &disp, &layer, NULL, NULL);
+    pthread_mutex_unlock(&impl->mutex);
 }
 
-void state_destroy(state_t *state)
+void eecs467_default_display_finished(vx_application_t *app, vx_display_t *disp)
 {
-    vx_world_destroy(state->world);
-    assert(zhash_size(state->layers) == 0);
+    eecs467_default_implementation_t *impl = app->impl;
+    pthread_mutex_lock(&impl->mutex);
 
-    pg_destroy(state->pg);
+    vx_layer_t *layer = NULL;
+    zhash_remove(impl->layers, &disp, NULL, &layer);
+    vx_layer_destroy(layer);
 
-    zhash_destroy(state->layers);
-    free(state);
-
-    pthread_mutex_destroy(&state->mutex);
+    pthread_mutex_unlock(&impl->mutex);
 }
 
-state_t* state_create()
+void eecs467_init(int argc, char **argv)
 {
-    state_t *state = calloc(1, sizeof(state_t));
-    state->running = 1;
-    state->app.impl = state;
-    state->app.display_started = display_started;
-    state->app.display_finished = display_finished;
+    // on newer GTK systems, this might generate an error/warning
+    g_type_init();
 
-    state->world = vx_world_create();
-    state->layers = zhash_create(sizeof(vx_display_t*), sizeof(vx_layer_t*), zhash_ptr_hash, zhash_ptr_equals);
+    // Initialize GTK
+    gdk_threads_init();
+    gdk_threads_enter();
+    gtk_init(&argc, &argv);
 
-    pthread_mutex_init(&state->mutex, NULL);
-
-    return state;
+    vx_global_init();
 }
 
-void init_gui(state_t *state, int w, int h)
+void eecs467_gui_run(vx_application_t *app, parameter_gui_t *pg, int w, int h)
 {
     // Creates a GTK window to wrap around our vx display canvas. The vx world
     // is rendered to the canvas widget, which acts as a viewport into your
     // virtual world.
-    vx_gtk_display_source_t *appwrap = vx_gtk_display_source_create(&state->app);
+    vx_gtk_display_source_t *appwrap = vx_gtk_display_source_create(app);
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     GtkWidget *canvas = vx_gtk_display_source_get_widget(appwrap);
-    GtkWidget *pgui = pg_get_widget(state->pg);
+    GtkWidget *pgui = pg_get_widget(pg);
     gtk_window_set_default_size(GTK_WINDOW(window), w, h);
 
     // Pack a parameter gui and canvas into a vertical box

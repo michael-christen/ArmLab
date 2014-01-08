@@ -27,30 +27,14 @@
 #include "imagesource/image_source.h"
 #include "imagesource/image_convert.h"
 
-// Holds world state, threading tools
-typedef struct
-{
-    int running;
+typedef struct eecs467_default_implementation eecs467_default_implementation_t;
 
-    const char *url;
+eecs467_default_implementation_t *eecs467_default_implementation_create(vx_world_t *world);
 
-    vx_application_t app;
+void eecs467_default_display_started(vx_application_t *app, vx_display_t *disp);
+void eecs467_default_display_finished(vx_application_t *app, vx_display_t *disp);
 
-    parameter_gui_t *pg;
-
-    vx_world_t *world;  // Where vx objects are live
-    zhash_t *layers;
-
-    pthread_mutex_t mutex;  // for accessing the arrays
-    pthread_t animate_thread;
-} state_t;
-
-void display_finished(vx_application_t *app, vx_display_t *disp);
-void display_started(vx_application_t *app, vx_display_t *disp);
-
-void state_destroy(state_t *state);
-state_t* state_create();
-
-void init_gui(state_t *state, int w, int h);
+void eecs467_init(int argc, char **argv);
+void eecs467_gui_run(vx_application_t *app, parameter_gui_t *pg, int w, int h);
 
 #endif

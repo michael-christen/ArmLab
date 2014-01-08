@@ -1,5 +1,24 @@
 #include "eecs467_util.h"    // This is where a lot of the internals live
 
+// It's good form for every application to keep its state in a struct.
+typedef struct state state_t;
+struct state
+{
+    char *url;
+    int running;
+
+    vx_application_t  vxapp;
+    getopt_t         *gopt;
+    parameter_gui_t  *pg;
+
+    vx_world_t *world;  // Where vx objects are live
+
+    zhash_t *layers;
+
+    pthread_mutex_t mutex;  // for accessing the arrays
+    pthread_t animate_thread;
+};
+
 // === Parameter listener =================================================
 // This function is handled to the parameter gui (via a parameter listener)
 // and handles events coming from the parameter gui. The parameter listener
@@ -76,8 +95,6 @@ void* render_loop(void *data)
                                        vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
                                                  vim));
                     vx_buffer_swap(vx_world_get_buffer(state->world, "image"));
-                    //printf(".");
-                    fflush(NULL);
                     image_u32_destroy(im);
                 }
             }
@@ -135,32 +152,35 @@ void* render_loop(void *data)
 // fill in the functionality with your own code.
 int main(int argc, char **argv)
 {
-    g_type_init();
+    eecs467_init(argc, argv);
+
+    state_t *state = calloc(1, sizeof(state_t));
+    state->world = vx_world_create();
+
+    state->vxapp.display_started = eecs467_default_display_started;
+    state->vxapp.display_finished = eecs467_default_display_finished;
+    state->vxapp.impl = eecs467_default_implementation_create(state->world);
+
+    state->running = 1;
 
     // Parse arguments from the command line, showing the help
     // screen if required
-    getopt_t *gopt = getopt_create();
-    getopt_add_bool(gopt, 'h', "help", 0, "Show help");
-    getopt_add_string(gopt, '\0', "url", "", "Camera URL");
+    state->gopt = getopt_create();
+    getopt_add_bool(state->gopt, 'h', "help", 0, "Show help");
+    getopt_add_string(state->gopt, '\0', "url", "", "Camera URL");
 
-    if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help"))
+    if (!getopt_parse(state->gopt, argc, argv, 1) || getopt_get_bool(state->gopt, "help"))
     {
         printf("Usage: %s [--url=CAMERAURL] [other options]\n\n", argv[0]);
-        getopt_do_usage(gopt);
+        getopt_do_usage(state->gopt);
         exit(1);
     }
-
-    // Call this to initialize the vx-wide lock. Required to start the GL
-    // threrad or to use the program library
-    vx_global_init();
-
-    state_t *state = state_create();
 
     // Set up the imagesource. This looks for a camera url specified on
     // the command line and, if none is found, enumerates a list of all
     // cameras imagesource can find and picks the first url it fidns.
-    if (strncmp(getopt_get_string(gopt, "url"), "", 1)) {
-        state->url = getopt_get_string(gopt, "url");
+    if (strncmp(getopt_get_string(state->gopt, "url"), "", 1)) {
+        state->url = strdup(getopt_get_string(state->gopt, "url"));
         printf("URL: %s\n", state->url);
     } else {
         // No URL specified. Show all available and then
@@ -183,7 +203,9 @@ int main(int argc, char **argv)
     // you to use remote displays to render your visualization. Also starts up
     // the animation thread, in which a render loop is run to update your
     // display.
-    vx_remote_display_source_t *cxn = vx_remote_display_source_create(&state->app);
+    vx_remote_display_source_t *cxn = vx_remote_display_source_create(&state->vxapp);
+
+
     pthread_create(&state->animate_thread, NULL, render_loop, state);
 
     // Initialize a parameter gui
@@ -207,12 +229,7 @@ int main(int argc, char **argv)
 
     state->pg = pg;
 
-    // Initialize GTK
-    gdk_threads_init();
-    gdk_threads_enter();
-    gtk_init(&argc, &argv);
-
-    init_gui(state, 800, 600);
+    eecs467_gui_run(&state->vxapp, state->pg, 800, 600);
     // Quit when GTK closes
     state->running = 0;
 
@@ -222,7 +239,6 @@ int main(int argc, char **argv)
     // Cleanup
     //free(my_listener);
 
-    state_destroy(state);
     vx_global_destroy();
-    getopt_destroy(gopt);
+    getopt_destroy(state->gopt);
 }

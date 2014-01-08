@@ -25,7 +25,7 @@ struct buffer {
 struct format
 {
     int                    width, height;
-    char                   format[5];
+    char                   format[IMAGE_SOURCE_MAX_FORMAT_LENGTH];
     struct v4l2_format    *v4l2format;
 };
 

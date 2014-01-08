@@ -134,6 +134,8 @@ void* render_loop(void *data)
 // fill in the functionality with your own code.
 int main(int argc, char **argv)
 {
+    g_type_init();
+
     // Parse arguments from the command line, showing the help
     // screen if required
     getopt_t *gopt = getopt_create();

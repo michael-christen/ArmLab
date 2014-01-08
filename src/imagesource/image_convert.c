@@ -15,6 +15,32 @@ static int clamp(int v)
     return v;
 }
 
+static image_u32_t *convert_rgb24(frame_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt->width,
+                                       frmd->ifmt->height);
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+    uint32_t a = 0xff << 24;
+
+    uint8_t *rgb = (uint8_t*)(frmd->data);
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = (y*width+x)*3;
+            int r = rgb[idx+0];
+            int g = rgb[idx+1];
+            int b = rgb[idx+2];
+
+            im->buf[y*stride+x] = r | (g<<8) | (b<<16) | a;
+        }
+    }
+
+    return im;
+}
+
 static image_u32_t *convert_yuyv(frame_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt->width,
@@ -244,7 +270,8 @@ image_u32_t *image_convert_u32(frame_data_t *frmd)
 //    } else if (!strcmp("BAYER_GRBG", frmd->ifmt->format)) {
 
 //    } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
-
+    } else if (!strcmp("RGB", frmd->ifmt->format)) {
+        return convert_rgb24(frmd);
     } else if (!strcmp("YUYV", frmd->ifmt->format)) {
         return convert_yuyv(frmd);
     } else {

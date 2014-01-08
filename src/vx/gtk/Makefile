@@ -10,10 +10,11 @@ DESTLIB_GTK=../../../lib/$(LIB_GTK)
 LIBVX_GTK_OBJS = vx_gtk_display_source.o vx_gtk_display.o gtkuimagepane.o vx_gtk_buffer_manager.o
 
 VX_DEMO=../../../bin/vx_demo
+VX_ZOO=../../../bin/vx_zoo
 VX_REMOTE_VIEWER=../../../bin/vx_remote_viewer
 VX_SCENE_VIEWER=../../../bin/vx_scene_viewer
 
-all: $(DESTLIB_GTK) $(VX_DEMO) $(VX_REMOTE_VIEWER) $(VX_SCENE_VIEWER)
+all: $(DESTLIB_GTK) $(VX_DEMO) $(VX_REMOTE_VIEWER) $(VX_SCENE_VIEWER) $(VX_ZOO)
 
 $(DESTLIB_GTK) : $(LIB_GTK)
 	@cp $(LIB_GTK) $(DESTLIB_GTK)
@@ -23,6 +24,10 @@ $(LIB_GTK):  $(LIBVX_GTK_OBJS)
 	@ar rc $@ $^
 
 $(VX_DEMO) : vx_demo.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
+	@echo "\t$@"
+	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
+
+$(VX_ZOO) : vx_zoo.o $(LIB_GTK) ../../../lib/libvxgl.a ../../../lib/libvx.a
 	@echo "\t$@"
 	@gcc -o $@ $^ $(LDFLAGS) $(LDFLAGS_VX)
 

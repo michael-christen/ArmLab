@@ -54,6 +54,7 @@ int main(int argc, char ** argv)
     ADD_OBJECT(vxo_tetrahedron, (vxo_lines_style(vx_green, 2.0f)));
     ADD_OBJECT(vxo_square_pyramid, (vxo_lines_style(vx_red, 2.0f)));
     ADD_OBJECT(vxo_cylinder, (vxo_mesh_style(vx_red)));
+    ADD_OBJECT(vxo_sphere, (vxo_mesh_style(vx_green)));
     ADD_OBJECT(vxo_axes, ());
 
     vx_application_t app = {.impl=&state, .display_started=display_started, .display_finished=display_finished};

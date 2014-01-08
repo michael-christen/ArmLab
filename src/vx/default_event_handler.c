@@ -134,16 +134,16 @@ static void window_space_pan_to(double * xyz, double winx, double winy, matd_t *
 
 static int default_mouse_event(vx_event_handler_t * vh, vx_layer_t * vl, vx_camera_pos_t * pos, vx_mouse_event_t * mouse)
 {
-    /* printf("mouse_event deh (%f,%f) buttons = %x scroll = %d modifiers = %x\n", */
-    /*        mouse->xy[0],mouse->xy[1], mouse->button_mask, mouse->scroll_amt, mouse->modifiers); */
+//    printf("mouse_event deh (%f,%f) buttons = %x scroll = %d modifiers = %x\n",
+//            mouse->x, mouse->y, mouse->button_mask, mouse->scroll_amt, mouse->modifiers);
 
     default_event_handler_t * deh = (default_event_handler_t*) vh->impl;
 
-    /* int shift = mouse->modifiers & VX_SHIFT_MASK; */
+    int shift = mouse->modifiers & VX_SHIFT_MASK;
     /* int ctrl = mouse->modifiers & VX_CTRL_MASK; */
 
     // no camera movement with the following modifiers
-    if (mouse->modifiers & VX_SHIFT_MASK ||
+    if (// mouse->modifiers & VX_SHIFT_MASK ||
         mouse->modifiers & VX_CTRL_MASK ||
         mouse->modifiers & VX_WIN_MASK ||
         mouse->modifiers & VX_ALT_MASK ) {
@@ -277,12 +277,13 @@ static int default_mouse_event(vx_event_handler_t * vh, vx_layer_t * vl, vx_came
     }
 
     if (mouse->scroll_amt != 0) { // handle zoom, ONLY when no other interaction is occuring!
+
         double zoom_manip[3]; // Zooming always chooses its own state-less manipulation point
         vx_ray3_t ray;
         vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
         vx_ray3_intersect_xy(&ray, 0.0, zoom_manip); // XXX No manipulation manager right now
 
-        double SCROLL_ZOOM_FACTOR = pow(2, 0.25);
+        double SCROLL_ZOOM_FACTOR = pow(2, shift ? 1 : 0.25);
         // XXX Need a way to get shift double SHIFT_SCROLL_ZOOM_FACTOR = pow(2, 1);
 
         double factor = SCROLL_ZOOM_FACTOR;

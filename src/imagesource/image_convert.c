@@ -15,10 +15,10 @@ static int clamp(int v)
     return v;
 }
 
-static image_u32_t *convert_yuyv(frame_data_t *frmd)
+static image_u32_t *convert_yuyv(image_source_data_t *frmd)
 {
-    image_u32_t *im = image_u32_create(frmd->ifmt->width,
-                                       frmd->ifmt->height);
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
 
     int width = im->width;
     int height = im->height;
@@ -55,10 +55,10 @@ static image_u32_t *convert_yuyv(frame_data_t *frmd)
     return im;
 }
 
-static image_u32_t *debayer_rggb(frame_data_t *frmd)
+static image_u32_t *debayer_rggb(image_source_data_t *frmd)
 {
-    image_u32_t *im = image_u32_create(frmd->ifmt->width,
-                                       frmd->ifmt->height);
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
 
     uint8_t *d = (uint8_t*)(frmd->data);
     uint32_t *out = im->buf;
@@ -135,10 +135,10 @@ static image_u32_t *debayer_rggb(frame_data_t *frmd)
     return im;
 }
 
-static image_u32_t *debayer_gbrg(frame_data_t *frmd)
+static image_u32_t *debayer_gbrg(image_source_data_t *frmd)
 {
-    image_u32_t *im = image_u32_create(frmd->ifmt->width,
-                                       frmd->ifmt->height);
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
 
     uint8_t *d = (uint8_t*)(frmd->data);
     uint32_t *out = im->buf;
@@ -215,10 +215,10 @@ static image_u32_t *debayer_gbrg(frame_data_t *frmd)
     return im;
 }
 
-static image_u32_t *gray8(frame_data_t *frmd)
+static image_u32_t *gray8(image_source_data_t *frmd)
 {
-    image_u32_t *im = image_u32_create(frmd->ifmt->width,
-                                       frmd->ifmt->height);
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
     uint8_t *buf = (uint8_t*)(frmd->data);
     for (int y = 0; y < im->height; y++) {
         for (int x = 0; x < im->width; x++) {
@@ -231,24 +231,24 @@ static image_u32_t *gray8(frame_data_t *frmd)
     return im;
 }
 
-image_u32_t *image_convert_u32(frame_data_t *frmd)
+image_u32_t *image_convert_u32(image_source_data_t *frmd)
 {
-    if (!strcmp("BAYER_GBRG", frmd->ifmt->format)) {
+    if (!strcmp("BAYER_GBRG", frmd->ifmt.format)) {
         return debayer_gbrg(frmd);
-    } else if (!strcmp("GRAY8", frmd->ifmt->format)) {
+    } else if (!strcmp("GRAY8", frmd->ifmt.format)) {
         return gray8(frmd);
 
-    } else if (!strcmp("BAYER_RGGB", frmd->ifmt->format)) {
+    } else if (!strcmp("BAYER_RGGB", frmd->ifmt.format)) {
         return debayer_rggb(frmd);
 
-//    } else if (!strcmp("BAYER_GRBG", frmd->ifmt->format)) {
+//    } else if (!strcmp("BAYER_GRBG", frmd->ifmt.format)) {
 
-//    } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
+//    } else if (!strcmp("GRAY16", frmd->ifmt.format)) {
 
-    } else if (!strcmp("YUYV", frmd->ifmt->format)) {
+    } else if (!strcmp("YUYV", frmd->ifmt.format)) {
         return convert_yuyv(frmd);
     } else {
-        printf("ERR: Format %s not supported\n", frmd->ifmt->format);
+        printf("ERR: Format %s not supported\n", frmd->ifmt.format);
     }
 
     // XXX More formats to come...See jcam.ImageConvert

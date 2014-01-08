@@ -151,20 +151,15 @@ static int num_formats(image_source_t *isrc)
     return 1;
 }
 
-static image_source_format_t *get_format(image_source_t *isrc, int idx)
+static void get_format(image_source_t *isrc, int idx, image_source_format_t *fmt)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_islog_t *impl = (impl_islog_t*) isrc->impl;
 
-    impl->fmt->width = impl->next_frame->width;
-    impl->fmt->height = impl->next_frame->height;
+    fmt->width = impl->next_frame->width;
+    fmt->height = impl->next_frame->height;
 
-    if (impl->fmt->format != NULL)
-        free(impl->fmt->format);
-
-    impl->fmt->format = strdup(impl->next_frame->format);
-
-    return impl->fmt;
+    strcpy(fmt->format, impl->next_frame->format);
 }
 
 static int get_current_format(image_source_t *isrc)
@@ -260,7 +255,7 @@ static int start(image_source_t *isrc)
     return 0;
 }
 
-static int get_frame(image_source_t *isrc, frame_data_t * frmd)
+static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_islog_t *impl = (impl_islog_t*) isrc->impl;
@@ -314,17 +309,16 @@ static int get_frame(image_source_t *isrc, frame_data_t * frmd)
     frmd->data = impl->last_frame->buf;
     frmd->datalen = impl->last_frame->buflen;
 
-    frmd->ifmt = calloc(1, sizeof(image_source_format_t));
-    frmd->ifmt->format = new_frame->format; // No copy, will be freed on next call to get_frame();
-    frmd->ifmt->width = new_frame->width;
-    frmd->ifmt->height = new_frame->height;
+    frmd->ifmt.width = new_frame->width;
+    frmd->ifmt.height = new_frame->height;
+    strcpy(frmd->ifmt.format, new_frame->format);
 
     frmd->utime = new_frame->utime;
 
     return 0;
 }
 
-static int release_frame(image_source_t *isrc, frame_data_t * frmd)
+static int release_frame(image_source_t *isrc, image_source_data_t * frmd)
 {
     // free() calls occurs on subsequent call to get_frame();
     return 0;

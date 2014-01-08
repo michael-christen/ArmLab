@@ -25,7 +25,8 @@ typedef struct impl_filedir impl_filedir_t;
 struct impl_filedir
 {
     // computed at instantiation time
-    image_source_format_t *fmt;
+    int width, height;
+    char format[32];
 
     float fps;
     int timescale;
@@ -49,12 +50,15 @@ static int num_formats(image_source_t *isrc)
     return 1;
 }
 
-static image_source_format_t *get_format(image_source_t *isrc, int idx)
+static void get_format(image_source_t *isrc, int idx, image_source_format_t *fmt)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
 
-    return impl->fmt;
+    memset(fmt, 0, sizeof(image_source_format_t));
+    fmt->width = impl->width;
+    fmt->height = impl->height;
+    strcpy(fmt->format, impl->format);
 }
 
 static int get_current_format(image_source_t *isrc)
@@ -72,12 +76,7 @@ static int set_format(image_source_t *isrc, int idx)
 static int set_named_format(image_source_t *isrc, const char *desired_format)
 {
     assert(isrc->impl_type == IMPL_TYPE);
-    impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
-
-    if (!strcmp(desired_format, impl->fmt->format))
-        return 0;
-
-    return -1;
+    return 0;
 }
 
 static int num_features(image_source_t *isrc)
@@ -169,7 +168,7 @@ void abort_(const char * s, ...)
     abort();
 }
 
-static int get_frame_png(image_source_t *isrc, frame_data_t *frmd, const char *file_name)
+static int get_frame_png(image_source_t *isrc, image_source_data_t *frmd, const char *file_name)
 {
     int res = -1;
 
@@ -221,10 +220,9 @@ static int get_frame_png(image_source_t *isrc, frame_data_t *frmd, const char *f
 
     if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_GRAY) {
 
-        frmd->ifmt = calloc(1, sizeof(image_source_format_t));
-        frmd->ifmt->width = width;
-        frmd->ifmt->height = height;
-        frmd->ifmt->format = strdup("GRAY");
+        frmd->ifmt.width = width;
+        frmd->ifmt.height = height;
+        strcpy(frmd->ifmt.format, "GRAY");
 
         frmd->datalen = width * height;
         frmd->data = malloc(frmd->datalen);
@@ -243,10 +241,9 @@ static int get_frame_png(image_source_t *isrc, frame_data_t *frmd, const char *f
 
     if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGBA) {
 
-        frmd->ifmt = calloc(1, sizeof(image_source_format_t));
-        frmd->ifmt->width = width;
-        frmd->ifmt->height = height;
-        frmd->ifmt->format = strdup("RGBA");
+        frmd->ifmt.width = width;
+        frmd->ifmt.height = height;
+        strcpy(frmd->ifmt.format, "RGBA");
 
         frmd->datalen = width * height * 4;
         frmd->data = malloc(frmd->datalen);
@@ -265,10 +262,9 @@ static int get_frame_png(image_source_t *isrc, frame_data_t *frmd, const char *f
 
     if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGB) {
 
-        frmd->ifmt = calloc(1, sizeof(image_source_format_t));
-        frmd->ifmt->width = width;
-        frmd->ifmt->height = height;
-        frmd->ifmt->format = strdup("RGB");
+        frmd->ifmt.width = width;
+        frmd->ifmt.height = height;
+        strcpy(frmd->ifmt.format, "RGB");
 
         frmd->datalen = width * height * 3;
         frmd->data = malloc(frmd->datalen);
@@ -309,13 +305,13 @@ static uint32_t get_time_code(const char *s)
     return acc;
 }
 
-static int get_frame(image_source_t *isrc, frame_data_t *frmd)
+static int get_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
 
   tryagain:
-    memset(frmd, 0, sizeof(frame_data_t));
+    memset(frmd, 0, sizeof(image_source_data_t));
 
     if (impl->pos == zarray_size(impl->files)) {
         if (impl->loop)
@@ -376,10 +372,8 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
     return 0;
 }
 
-static int release_frame(image_source_t *isrc, frame_data_t *frmd)
+static int release_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
-    free(frmd->ifmt->format);
-    free(frmd->ifmt);
     free(frmd->data);
 
     return 0;
@@ -433,7 +427,6 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
 
     impl_filedir_t *impl = calloc(1, sizeof(impl_filedir_t));
     isrc->impl = impl;
-    impl->fmt = calloc(1, sizeof(image_source_format_t));
     impl->files = zarray_create(sizeof(char*));
 
     if (!strcmp(url_parser_get_protocol(urlp), "file://")) {
@@ -470,9 +463,9 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
     }
 
     // fill in fmt. (These will be overwritten later.)
-    impl->fmt->width = 640;
-    impl->fmt->height = 480;
-    impl->fmt->format = strdup("RGB");
+    impl->width = 640;
+    impl->height = 480;
+    strcpy(impl->format, "RGB");
 
     impl->fps = 10;
     impl->timescale = 0;

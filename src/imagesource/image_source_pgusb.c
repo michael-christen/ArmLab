@@ -77,6 +77,17 @@ struct transfer_info
     uint8_t *buf;
 };
 
+struct format
+{
+    int width, height;
+    char format[32];
+
+    uint32_t format7_mode_idx;
+    uint32_t color_coding_idx;
+    uint32_t csr;
+};
+
+
 typedef struct impl_pgusb impl_pgusb_t;
 struct impl_pgusb
 {
@@ -85,7 +96,7 @@ struct impl_pgusb
     libusb_device_handle *handle;
 
     int nformats;
-    image_source_format_t **formats;
+    struct format *formats;
     int                   current_format_idx;
 
     // must add CONFIG_ROM_BASE to each of these.
@@ -128,13 +139,6 @@ struct impl_pgusb
     struct feature *features;
     int nfeatures;
 
-};
-
-struct format_priv
-{
-    uint32_t format7_mode_idx;
-    uint32_t color_coding_idx;
-    uint32_t csr;
 };
 
 struct usb_vendor_product
@@ -493,13 +497,14 @@ static int num_formats(image_source_t *isrc)
     return impl->nformats;
 }
 
-static image_source_format_t *get_format(image_source_t *isrc, int idx)
+static void get_format(image_source_t *isrc, int idx, image_source_format_t *fmt)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
 
-    assert(idx>=0 && idx < impl->nformats);
-    return impl->formats[idx];
+    fmt->width = impl->formats[idx].width;
+    fmt->height = impl->formats[idx].height;
+    strcpy(fmt->format, impl->formats[idx].format);
 }
 
 static int get_current_format(image_source_t *isrc)
@@ -549,10 +554,11 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
 
     for (int i=0; i < nformats; i++)
     {
-        image_source_format_t *fmt = get_format(isrc, i);
+        image_source_format_t fmt;
+        get_format(isrc, i, &fmt);
 
-        if (!strcmp(fmt->format, format_name)) {
-            if (width == -1 || height == -1 || (fmt->width == width && fmt->height == height)) {
+        if (!strcmp(fmt.format, format_name)) {
+            if (width == -1 || height == -1 || (fmt.width == width && fmt.height == height)) {
                 fidx = i;
                 break;
             }
@@ -564,9 +570,11 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
         printf("Matching format '%s' not found. Valid formats are:\n", desired_format);
         for (int i=0; i < nformats; i++)
         {
-            image_source_format_t *fmt = get_format(isrc, i);
+            image_source_format_t fmt;
+            get_format(isrc, i, &fmt);
+
             printf("\t[fidx: %d] width: %d height: %d name: '%s'\n",
-                   i, fmt->width, fmt->height, fmt->format);
+                   i, fmt.width, fmt.height, fmt.format);
         }
         printf("\tFormat resolution not required.  Exiting.\n");
         exit(-1);
@@ -706,18 +714,17 @@ static void *worker_thread_proc(void *arg)
 static void do_value_setting(image_source_t *isrc)
 {
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
-    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
-    struct format_priv *format_priv = (struct format_priv*) ifmt->priv;
+    struct format *format = &impl->formats[get_current_format(isrc)];
 
     uint32_t quads[] = { 0x40000000 };
 
-    if (do_write(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x7c, quads, 1) != 1)
+    if (do_write(impl->handle, CONFIG_ROM_BASE + format->csr + 0x7c, quads, 1) != 1)
         printf("failed write: line %d\n", __LINE__);
 
     while (1) {
         uint32_t resp;
 
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x7c, &resp, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x7c, &resp, 1);
 
         if (debug)
             printf("do_value_setting result: %08x\n", resp);
@@ -731,19 +738,18 @@ static int start(image_source_t *isrc)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
-    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
-    struct format_priv *format_priv = (struct format_priv*) ifmt->priv;
+    struct format *format = &impl->formats[get_current_format(isrc)];
 
 //    printf("CURRENT FORMAT %d\n", get_current_format(isrc));
 //    printf("FORMAT_PRIV: %d %d %d\n", format_priv->format7_mode_idx, format_priv->color_coding_idx, format_priv->csr);
 
     int bytes_per_pixel = 1;
-    if ((format_priv->color_coding_idx >=5 && format_priv->color_coding_idx <= 8) ||
-        (format_priv->color_coding_idx == 10)) {
+    if ((format->color_coding_idx >=5 && format->color_coding_idx <= 8) ||
+        (format->color_coding_idx == 10)) {
         bytes_per_pixel = 2;
     }
 
-    impl->bytes_per_frame = ifmt->width * ifmt->height * bytes_per_pixel;
+    impl->bytes_per_frame = format->width * format->height * bytes_per_pixel;
 
     // set iso channel
     if (1) {
@@ -772,9 +778,9 @@ static int start(image_source_t *isrc)
 
     // set format 7 mode (604 = 00000000)
     if (1) {
-        printf("FORMAT7_MODE_IDX %d\n", format_priv->format7_mode_idx);
+        printf("FORMAT7_MODE_IDX %d\n", format->format7_mode_idx);
 
-        uint32_t quads[] = { format_priv->format7_mode_idx << 29 };
+        uint32_t quads[] = { format->format7_mode_idx << 29 };
         if (do_write(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x604, quads, 1) != 1)
             printf("failed write: line %d\n", __LINE__);
     }
@@ -783,8 +789,8 @@ static int start(image_source_t *isrc)
 
     // set image size a0c = 02f001e0
     if (1) {
-        uint32_t quads[] = { ifmt->height + (ifmt->width<<16) };
-        if (do_write(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x0c, quads, 1) != 1)
+        uint32_t quads[] = { format->height + (format->width<<16) };
+        if (do_write(impl->handle, CONFIG_ROM_BASE + format->csr + 0x0c, quads, 1) != 1)
             printf("failed write: line %d\n", __LINE__);
     }
     do_value_setting(isrc);
@@ -792,15 +798,15 @@ static int start(image_source_t *isrc)
     // set image position a08 = 00000000
     if (1) {
         uint32_t quads[] = { 0 };
-        if (do_write(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x08, quads, 1) != 1)
+        if (do_write(impl->handle, CONFIG_ROM_BASE + format->csr + 0x08, quads, 1) != 1)
             printf("failed write: line %d\n", __LINE__);
     }
     do_value_setting(isrc);
 
     // set format 7 color mode (a10 = 00000000)
     if (1) {
-        uint32_t quads[] = { format_priv->color_coding_idx<<24 };
-        if (do_write(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x10, quads, 1) != 1)
+        uint32_t quads[] = { format->color_coding_idx<<24 };
+        if (do_write(impl->handle, CONFIG_ROM_BASE + format->csr + 0x10, quads, 1) != 1)
             printf("failed write: line %d\n", __LINE__);
     }
 
@@ -809,14 +815,14 @@ static int start(image_source_t *isrc)
 
     if (1) {
         uint32_t pixels_per_frame;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x34, &pixels_per_frame, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x34, &pixels_per_frame, 1);
 
         uint32_t total_bytes_hi, total_bytes_lo;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x38, &total_bytes_hi, 1);
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x3c, &total_bytes_lo, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x38, &total_bytes_hi, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x3c, &total_bytes_lo, 1);
 
         uint32_t packets_per_frame;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x48, &packets_per_frame, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x48, &packets_per_frame, 1);
 
         assert(total_bytes_hi == 0);
 
@@ -831,12 +837,12 @@ static int start(image_source_t *isrc)
     if (1) {
         uint32_t tmp;
 
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x40, &tmp, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x40, &tmp, 1);
         uint32_t packet_unit = (tmp >> 16) & 0xffff;
         uint32_t packet_max = (tmp) & 0xffff;
 
         // set packet size
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x44, &tmp, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x44, &tmp, 1);
         uint32_t previous_packet_size = (tmp >> 16) & 0xffff;
         uint32_t recommended_packet_size = (tmp) & 0xffff;
 
@@ -876,12 +882,12 @@ static int start(image_source_t *isrc)
 
         uint32_t quads[] = { (impl->packet_size)<<16 };
 
-        if (do_write(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x44, quads, 1) != 1)
+        if (do_write(impl->handle, CONFIG_ROM_BASE + format->csr + 0x44, quads, 1) != 1)
             printf("failed write: line %d\n", __LINE__);
 
         do_value_setting(isrc);
 
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x44, &tmp, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x44, &tmp, 1);
         uint32_t updated_packet_size = (tmp >> 16) & 0xffff;
 //        uint32_t updated_recommended_packet_size = (tmp) & 0xffff;
 
@@ -898,17 +904,17 @@ static int start(image_source_t *isrc)
 
    if (1) {
         uint32_t pixels_per_frame;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x34, &pixels_per_frame, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x34, &pixels_per_frame, 1);
 
         uint32_t total_bytes_hi, total_bytes_lo;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x38, &total_bytes_hi, 1);
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x3c, &total_bytes_lo, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x38, &total_bytes_hi, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x3c, &total_bytes_lo, 1);
 
         uint32_t packets_per_frame;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x48, &packets_per_frame, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x48, &packets_per_frame, 1);
 
         uint32_t packet_tmp;
-        do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr + 0x44, &packet_tmp, 1);
+        do_read(impl->handle, CONFIG_ROM_BASE + format->csr + 0x44, &packet_tmp, 1);
         uint32_t packet_size = (packet_tmp >> 16) & 0xffff;
 
         if (debug) {
@@ -938,7 +944,7 @@ static int start(image_source_t *isrc)
     if (0) {
         int nquads = 32;
         uint32_t quads[32];
-        if (do_read(impl->handle, CONFIG_ROM_BASE + format_priv->csr, quads, nquads) != nquads)
+        if (do_read(impl->handle, CONFIG_ROM_BASE + format->csr, quads, nquads) != nquads)
             return -1;
 
         for (int i = 0; i < 32; i++)
@@ -1008,7 +1014,7 @@ static int start(image_source_t *isrc)
     return 0;
 }
 
-static int get_frame(image_source_t *isrc, frame_data_t *frmd)
+static int get_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
@@ -1019,13 +1025,14 @@ static int get_frame(image_source_t *isrc, frame_data_t *frmd)
     frmd->datalen = impl->bytes_per_frame;
     frmd->data = impl->images[idx].buf;
     frmd->utime = utime_now(); // XXX DO BETTER
-    frmd->ifmt = impl->formats[impl->current_format_idx];
+    frmd->ifmt.width = impl->formats[impl->current_format_idx].width;
+    frmd->ifmt.height = impl->formats[impl->current_format_idx].height;
+    strcpy(frmd->ifmt.format, impl->formats[impl->current_format_idx].format);
 
-//    printf("get_frame\n");
     return 0;
 }
 
-static int release_frame(image_source_t *isrc, frame_data_t *frmd)
+static int release_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
@@ -2358,34 +2365,29 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
                     if (cmodes & (1<<(31-cmode))) {
                         printf(" %d %s\n", cmode, COLOR_MODES[cmode]);
 
-                        impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(image_source_format_t*));
-                        impl->formats[impl->nformats] = calloc(1, sizeof(image_source_format_t));
-                        impl->formats[impl->nformats]->height = quads[0] & 0xffff;
-                        impl->formats[impl->nformats]->width = quads[0] >> 16;
+                        impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(struct format));
+                        impl->formats[impl->nformats].height = quads[0] & 0xffff;
+                        impl->formats[impl->nformats].width = quads[0] >> 16;
 
                         if (cmode == 9) {
                             // 8 bit bayer
                             int filter_mode = quads[22]>>24;
-                            impl->formats[impl->nformats]->format = strdup(BAYER_MODES[filter_mode]);
+                            strcpy(impl->formats[impl->nformats].format, BAYER_MODES[filter_mode]);
                         } else if (cmode == 10) {
                             // 16 bit bayer
                             int filter_mode = quads[22]>>24;
                             char buf[1024];
                             sprintf(buf, "%s16", BAYER_MODES[filter_mode]);
-                            impl->formats[impl->nformats]->format = strdup(buf);
+                            strcpy(impl->formats[impl->nformats].format, buf);
                         } else {
                             // not a bayer
-                            impl->formats[impl->nformats]->format = strdup(COLOR_MODES[cmode]);
+                            strcpy(impl->formats[impl->nformats].format, COLOR_MODES[cmode]);
                         }
 
-                        struct format_priv *format_priv = calloc(1, sizeof(struct format_priv));
-                        printf("MODE %d\n", mode);
+                        impl->formats[impl->nformats].format7_mode_idx = mode;
+                        impl->formats[impl->nformats].color_coding_idx = cmode;
+                        impl->formats[impl->nformats].csr = mode_csr;
 
-                        format_priv->format7_mode_idx = mode;
-                        format_priv->color_coding_idx = cmode;
-                        format_priv->csr = mode_csr;
-
-                        impl->formats[impl->nformats]->priv = format_priv;
                         impl->nformats++;
                     }
                 }

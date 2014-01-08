@@ -26,6 +26,16 @@
 
 #define IMPL_TYPE 0x44431394
 
+struct format
+{
+    int width, height;
+    char format[32];
+
+    dc1394video_mode_t dc1394_mode;
+    int format7_mode_idx;
+    int color_coding_idx;
+};
+
 typedef struct impl_dc1394 impl_dc1394_t;
 struct impl_dc1394
 {
@@ -35,7 +45,7 @@ struct impl_dc1394
     dc1394camera_t        *cam;
 
     int                   nformats;
-    image_source_format_t **formats;
+    struct format         *formats;
     int                   current_format_idx;
 
     int                   num_buffers;
@@ -47,13 +57,6 @@ struct impl_dc1394
     uint32_t              packet_size;
 
     uint32_t              started;
-};
-
-struct format_priv
-{
-    dc1394video_mode_t dc1394_mode;
-    int format7_mode_idx;
-    int color_coding_idx;
 };
 
 static int strobe_warned = 0;
@@ -178,13 +181,17 @@ static int num_formats(image_source_t *isrc)
     return impl->nformats;
 }
 
-static image_source_format_t *get_format(image_source_t *isrc, int idx)
+static void get_format(image_source_t *isrc, int idx, image_source_format_t *fmt)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
 
     assert(idx>=0 && idx < impl->nformats);
-    return impl->formats[idx];
+
+    memset(fmt, 0, sizeof(image_source_format_t));
+    fmt->width = impl->formats[idx].width;
+    fmt->height = impl->formats[idx].height;
+    strcpy(fmt->format, impl->formats[idx].format);
 }
 
 static int get_current_format(image_source_t *isrc)
@@ -234,10 +241,12 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
 
     for (int i=0; i < nformats; i++)
     {
-        image_source_format_t *fmt = get_format(isrc, i);
+        image_source_format_t fmt;
 
-        if (!strcmp(fmt->format, format_name)) {
-            if (width == -1 || height == -1 || (fmt->width == width && fmt->height == height)) {
+        get_format(isrc, i, &fmt);
+
+        if (!strcmp(fmt.format, format_name)) {
+            if (width == -1 || height == -1 || (fmt.width == width && fmt.height == height)) {
                 fidx = i;
                 break;
             }
@@ -249,9 +258,10 @@ static int set_named_format(image_source_t *isrc, const char *desired_format)
         printf("Matching format '%s' not found. Valid formats are:\n", desired_format);
         for (int i=0; i < nformats; i++)
         {
-            image_source_format_t *fmt = get_format(isrc, i);
+            image_source_format_t fmt;
+            get_format(isrc, i, &fmt);
             printf("\t[fidx: %d] width: %d height: %d name: '%s'\n",
-                   i, fmt->width, fmt->height, fmt->format);
+                   i, fmt.width, fmt.height, fmt.format);
         }
         printf("\tFormat resolution not required.  Exiting.\n");
         exit(-1);
@@ -1309,29 +1319,28 @@ restart:
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
 
-    image_source_format_t *format = impl->formats[impl->current_format_idx];
-    struct format_priv *format_priv = format->priv;
+    struct format *format = &impl->formats[impl->current_format_idx];
 
-    dc1394_video_set_mode(impl->cam, format_priv->dc1394_mode);
+    dc1394_video_set_mode(impl->cam, format->dc1394_mode);
     dc1394_video_set_iso_speed(impl->cam, DC1394_ISO_SPEED_400);
 
-    assert(dc1394_is_video_mode_scalable(format_priv->dc1394_mode));
+    assert(dc1394_is_video_mode_scalable(format->dc1394_mode));
 
     dc1394format7modeset_t info;
     dc1394_format7_get_modeset(impl->cam, &info);
 
-    dc1394format7mode_t *mode = info.mode + format_priv->format7_mode_idx;
-    dc1394color_coding_t color_coding = mode->color_codings.codings[format_priv->color_coding_idx];
+    dc1394format7mode_t *mode = info.mode + format->format7_mode_idx;
+    dc1394color_coding_t color_coding = mode->color_codings.codings[format->color_coding_idx];
 
-    dc1394_format7_set_image_size(impl->cam, format_priv->dc1394_mode,
+    dc1394_format7_set_image_size(impl->cam, format->dc1394_mode,
                                   format->width, format->height);
 
-    dc1394_format7_set_image_position(impl->cam, format_priv->dc1394_mode, 0, 0);
+    dc1394_format7_set_image_position(impl->cam, format->dc1394_mode, 0, 0);
 
-    dc1394_format7_set_color_coding(impl->cam, format_priv->dc1394_mode, color_coding);
+    dc1394_format7_set_color_coding(impl->cam, format->dc1394_mode, color_coding);
 
     uint32_t psize_unit, psize_max;
-    dc1394_format7_get_packet_parameters(impl->cam, format_priv->dc1394_mode, &psize_unit, &psize_max);
+    dc1394_format7_get_packet_parameters(impl->cam, format->dc1394_mode, &psize_unit, &psize_max);
 
     if (impl->packet_size == 0) {
         impl->packet_size = psize_max; //4096;
@@ -1345,9 +1354,9 @@ restart:
 
     printf("psize_unit: %d, psize_max: %d, packet_size: %d\n", psize_unit, psize_max, impl->packet_size);
 
-    dc1394_format7_set_packet_size(impl->cam, format_priv->dc1394_mode, impl->packet_size);
+    dc1394_format7_set_packet_size(impl->cam, format->dc1394_mode, impl->packet_size);
     uint64_t bytes_per_frame;
-    dc1394_format7_get_total_bytes(impl->cam, format_priv->dc1394_mode, &bytes_per_frame);
+    dc1394_format7_get_total_bytes(impl->cam, format->dc1394_mode, &bytes_per_frame);
 
     if (bytes_per_frame * impl->num_buffers > 25000000) {
         printf ("Reducing dc1394 buffers from %d to ", impl->num_buffers);
@@ -1392,7 +1401,7 @@ fail:
     }
 }
 
-static int get_frame(image_source_t *isrc, frame_data_t * frmd)
+static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
@@ -1420,13 +1429,16 @@ static int get_frame(image_source_t *isrc, frame_data_t * frmd)
 
     frmd->data = impl->current_frame->image;
     frmd->datalen= impl->current_frame->image_bytes;
-    frmd->ifmt = impl->formats[impl->current_format_idx];
+    frmd->ifmt.width = impl->formats[impl->current_format_idx].width;
+    frmd->ifmt.height = impl->formats[impl->current_format_idx].height;
+    strcpy(frmd->ifmt.format, impl->formats[impl->current_format_idx].format);;
+
     frmd->utime = utime_now(); //XXX Can we use information from camera to improve this?
 
     return 0;
 }
 
-static int release_frame(image_source_t *isrc, frame_data_t * frmd)
+static int release_frame(image_source_t *isrc, image_source_data_t * frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
@@ -1724,19 +1736,16 @@ image_source_t *image_source_dc1394_open(url_parser_t *urlp)
 
         for (int j = 0; j < mode->color_codings.num; j++) {
 
-            impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(image_source_format_t*));
-            impl->formats[impl->nformats] = calloc(1, sizeof(image_source_format_t));
+            impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(struct format));
 
-            impl->formats[impl->nformats]->width = mode->max_size_x;
-            impl->formats[impl->nformats]->height = mode->max_size_y;
-            impl->formats[impl->nformats]->format = strdup(toformat(mode->color_codings.codings[j], mode->color_filter));
+            impl->formats[impl->nformats].width = mode->max_size_x;
+            impl->formats[impl->nformats].height = mode->max_size_y;
+            const char *s = toformat(mode->color_codings.codings[j], mode->color_filter);
+            strcpy(impl->formats[impl->nformats].format, s);
 
-            struct format_priv *format_priv = calloc(1, sizeof(struct format_priv));
-            impl->formats[impl->nformats]->priv = format_priv;
-
-            format_priv->dc1394_mode = DC1394_VIDEO_MODE_FORMAT7_0 + i;
-            format_priv->format7_mode_idx = i;
-            format_priv->color_coding_idx = j;
+            impl->formats[impl->nformats].dc1394_mode = DC1394_VIDEO_MODE_FORMAT7_0 + i;
+            impl->formats[impl->nformats].format7_mode_idx = i;
+            impl->formats[impl->nformats].color_coding_idx = j;
 
             impl->nformats++;
         }
@@ -1771,7 +1780,7 @@ image_source_t *image_source_dc1394_open(url_parser_t *urlp)
         // third of a scanline.
         isrc->start(isrc);
 
-        frame_data_t *frmd = calloc(1, sizeof(frame_data_t));
+        image_source_data_t *frmd = calloc(1, sizeof(image_source_data_t));
         if (!isrc->get_frame(isrc, frmd)) {
             isrc->release_frame(isrc, frmd);
         }

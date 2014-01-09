@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "common/image_u32.h"
+#include "common/image_u8x3.h"
 
 static int clamp(int v)
 {
@@ -15,7 +16,7 @@ static int clamp(int v)
     return v;
 }
 
-static image_u32_t *convert_bgra(image_source_data_t *frmd)
+static image_u32_t *convert_bgra_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -42,7 +43,7 @@ static image_u32_t *convert_bgra(image_source_data_t *frmd)
     return im;
 }
 
-static image_u32_t *convert_rgb24(image_source_data_t *frmd)
+static image_u32_t *convert_rgb24_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -68,7 +69,7 @@ static image_u32_t *convert_rgb24(image_source_data_t *frmd)
     return im;
 }
 
-static image_u32_t *convert_yuyv(image_source_data_t *frmd)
+static image_u32_t *convert_yuyv_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -108,7 +109,50 @@ static image_u32_t *convert_yuyv(image_source_data_t *frmd)
     return im;
 }
 
-static image_u32_t *debayer_rggb(image_source_data_t *frmd)
+static image_u8x3_t *convert_yuyv_to_u8x3(image_source_data_t *frmd)
+{
+    image_u8x3_t *im = image_u8x3_create(frmd->ifmt.width,
+                                         frmd->ifmt.height);
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+
+    int sstride = width*2;
+    uint8_t *yuyv = (uint8_t*)(frmd->data);
+
+    for (int i = 0; i < height; i++) {
+
+        for (int j = 0; j < width / 2; j++) {
+            int y1 = yuyv[i*sstride + 4*j+0]&0xff;
+            int u  = yuyv[i*sstride + 4*j+1]&0xff;
+            int y2 = yuyv[i*sstride + 4*j+2]&0xff;
+            int v  = yuyv[i*sstride + 4*j+3]&0xff;
+
+            int cb = ((u-128) * 454)>>8;
+            int cr = ((v-128) * 359)>>8;
+            int cg = ((v-128) * 183 + (u-128) * 88)>>8;
+            int r, g, b;
+
+            r = clamp(y1 + cr);
+            b = clamp(y1 + cb);
+            g = clamp(y1 - cg);
+            im->buf[i*stride + 6*j+0] = r;
+            im->buf[i*stride + 6*j+1] = g;
+            im->buf[i*stride + 6*j+2] = b;
+
+            r = clamp(y2 + cr);
+            b = clamp(y2 + cb);
+            g = clamp(y2 - cg);
+            im->buf[i*stride + 6*j+3] = r;
+            im->buf[i*stride + 6*j+4] = g;
+            im->buf[i*stride + 6*j+5] = b;
+        }
+    }
+    return im;
+}
+
+static image_u32_t *debayer_rggb_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -188,7 +232,7 @@ static image_u32_t *debayer_rggb(image_source_data_t *frmd)
     return im;
 }
 
-static image_u32_t *debayer_gbrg(image_source_data_t *frmd)
+static image_u32_t *debayer_gbrg_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -268,7 +312,7 @@ static image_u32_t *debayer_gbrg(image_source_data_t *frmd)
     return im;
 }
 
-static image_u32_t *gray8(image_source_data_t *frmd)
+static image_u32_t *gray8_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
@@ -284,34 +328,67 @@ static image_u32_t *gray8(image_source_data_t *frmd)
     return im;
 }
 
-image_u32_t *image_convert_u32(image_source_data_t *frmd)
+// convert to ABGR format (MSB to LSB, host byte ordering.)
+image_u32_t *image_convert_u32(image_source_data_t *isdata)
 {
-    if (!strcmp("BAYER_GBRG", frmd->ifmt.format)) {
-        return debayer_gbrg(frmd);
+    if (!strcmp("BAYER_GBRG", isdata->ifmt.format)) {
+        return debayer_gbrg_to_u32(isdata);
 
-    } else if (!strcmp("GRAY8", frmd->ifmt.format)) {
-        return gray8(frmd);
+    } else if (!strcmp("GRAY8", isdata->ifmt.format)) {
+        return gray8_to_u32(isdata);
 
-    } else if (!strcmp("BAYER_RGGB", frmd->ifmt.format)) {
-        return debayer_rggb(frmd);
+    } else if (!strcmp("BAYER_RGGB", isdata->ifmt.format)) {
+        return debayer_rggb_to_u32(isdata);
 
-//    } else if (!strcmp("BAYER_GRBG", frmd->ifmt.format)) {
+//    } else if (!strcmp("BAYER_GRBG", isdata->ifmt.format)) {
 
-//    } else if (!strcmp("GRAY16", frmd->ifmt->format)) {
+//    } else if (!strcmp("GRAY16", isdata->ifmt->format)) {
 
-    } else if (!strcmp("RGB", frmd->ifmt.format)) {
-        return convert_rgb24(frmd);
+    } else if (!strcmp("RGB", isdata->ifmt.format)) {
+        return convert_rgb24_to_u32(isdata);
 
-    } else if (!strcmp("BGRA", frmd->ifmt.format)) {
-        return convert_bgra(frmd);
+    } else if (!strcmp("BGRA", isdata->ifmt.format)) {
+        return convert_bgra_to_u32(isdata);
 
-    } else if (!strcmp("YUYV", frmd->ifmt.format)) {
-        return convert_yuyv(frmd);
+    } else if (!strcmp("YUYV", isdata->ifmt.format)) {
+        return convert_yuyv_to_u32(isdata);
 
     } else {
-        printf("ERR: Format %s not supported\n", frmd->ifmt.format);
+        printf("ERR: Format %s not supported\n", isdata->ifmt.format);
     }
 
-    // XXX More formats to come...See jcam.ImageConvert
     return NULL;
+}
+
+static int image_convert_u8x3_slow_warned = 0;
+
+image_u8x3_t *image_convert_u8x3(image_source_data_t *isdata)
+{
+    if (!strcmp("YUYV", isdata->ifmt.format)) {
+        return convert_yuyv_to_u8x3(isdata);
+    }
+
+    // last resort: try the u32 conversions, then convert u32->u8x3
+    image_u32_t *im32 = image_convert_u32(isdata);
+    if (im32 == NULL) {
+        return NULL;
+    }
+
+    if (!image_convert_u8x3_slow_warned) {
+        image_convert_u8x3_slow_warned = 1;
+        printf("WARNING: Slow image format conversion, %s->u8x3\n", isdata->ifmt.format);
+    }
+
+    image_u8x3_t *im = image_u8x3_create(im32->width, im32->height);
+    for (int y = 0; y < im32->height; y++) {
+        for (int x = 0; x < im32->width; x++) {
+            uint32_t abgr = im32->buf[y*im32->stride+x];
+            im->buf[y*im->stride + 3*x + 0] = abgr & 0xff;
+            im->buf[y*im->stride + 3*x + 1] = (abgr>>8) & 0xff;
+            im->buf[y*im->stride + 3*x + 2] = (abgr>>16) & 0xff;
+        }
+    }
+
+    image_u32_destroy(im32);
+    return im;
 }

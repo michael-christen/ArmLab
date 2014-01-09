@@ -659,8 +659,8 @@ static void callback(struct libusb_transfer *transfer)
 //        if (transfer->actual_length == 512) {
             // we lost sync. start over.
             if (impl->current_frame_offset != 0)
-                printf("sync: current_frame_offset %8d, transfer_size %8d, cpysz %8d, bytes_transferred_per_frame %8d\n",
-                       impl->current_frame_offset, transfer->actual_length, cpysz, impl->bytes_transferred_per_frame);
+                printf("sync: current_frame_offset %8d, transfer_actual %8d, transfer_length %8d\n",
+                       impl->current_frame_offset, transfer->actual_length, transfer->length);
 
 //            put_ready_frame(impl, impl->current_frame_index);
 //            impl->current_frame_index = -1;
@@ -780,7 +780,8 @@ static int start(image_source_t *isrc)
 
     // set format 7 mode (604 = 00000000)
     if (1) {
-        printf("FORMAT7_MODE_IDX %d\n", format->format7_mode_idx);
+        if (debug)
+            printf("FORMAT7_MODE_IDX %d\n", format->format7_mode_idx);
 
         uint32_t quads[] = { format->format7_mode_idx << 29 };
         if (do_write(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x604, quads, 1) != 1)
@@ -1421,7 +1422,8 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
         if (do_read(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x480, &foo, 1) != 1)
             return;
 
-        printf("ABSOLUTE %08x %08x\n", absolute_csr, foo);
+        if (debug)
+            printf("ABSOLUTE %08x %08x\n", absolute_csr, foo);
     }
 
     // create a feature to control the mode
@@ -1494,16 +1496,18 @@ void add_simple_feature(image_source_t *isrc, const char *name, uint32_t addr)
         }
     }
 
-    printf("FEATURE %-15s: %08x [%11s] [%6s] [%11s] [%10s] [%9s] [%7s] [%9s]\n",
-           name, d,
-           (d & (1<<31)) ? "present" : "not present",
-           (d & (1<<30)) ? "abs": "no abs",
-           (d & (1<<28)) ? "one-shot" : "no one-shot",
-           (d & (1<<27)) ? "read" : "write-only",
-           (d & (1<<26)) ? "on-off" : "no on-off",
-           (d & (1<<25)) ? "auto" : "no auto",
-           (d & (1<<24)) ? "manual" : "no manual"
-        );
+    if (debug) {
+        printf("FEATURE %-15s: %08x [%11s] [%6s] [%11s] [%10s] [%9s] [%7s] [%9s]\n",
+               name, d,
+               (d & (1<<31)) ? "present" : "not present",
+               (d & (1<<30)) ? "abs": "no abs",
+               (d & (1<<28)) ? "one-shot" : "no one-shot",
+               (d & (1<<27)) ? "read" : "write-only",
+               (d & (1<<26)) ? "on-off" : "no on-off",
+               (d & (1<<25)) ? "auto" : "no auto",
+               (d & (1<<24)) ? "manual" : "no manual"
+            );
+    }
 
 //    printf("FEATURE %-15s: is_available: %1d, min %8.0f, max %8.0f, value %8.0f\n",
 //           name, f.is_available(isrc, &f), f.get_min(isrc, &f), f.get_max(isrc, &f), f.get_value(isrc, &f));
@@ -2030,7 +2034,8 @@ void add_trigger_feature(image_source_t *isrc, const char *name, uint32_t addr, 
         append_feature(impl, f);
     }
 
-    printf("FEATURE %-15s: %08x\n", name, d);
+    if (debug)
+        printf("FEATURE %-15s: %08x\n", name, d);
 
     return;
 }
@@ -2156,9 +2161,11 @@ void add_bit_field_feature(image_source_t *isrc, const char *name, uint32_t addr
         append_feature(impl, f);
     }
 
-    printf("FEATURE %-15s: %08x: %s\n",
-           name, d,
-           (d & (1<<position)) ? "enabled" : "disabled");
+    if (debug) {
+        printf("FEATURE %-15s: %08x: %s\n",
+               name, d,
+               (d & (1<<position)) ? "enabled" : "disabled");
+    }
 
     return;
 }
@@ -2318,7 +2325,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
         assert((tmp>>24)==0xd1);
         impl->unit_directory_offset = 0x424 + (tmp & 0x00ffffff)*4;
 
-        printf("unit_directory_offset: %08x\n", impl->unit_directory_offset);
+        if (debug)
+            printf("unit_directory_offset: %08x\n", impl->unit_directory_offset);
     }
 
     if (1) {
@@ -2329,7 +2337,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
         assert((tmp>>24)==0xd4);
         impl->unit_dependent_directory_offset = impl->unit_directory_offset + 0x0c + (tmp & 0x00ffffff)*4;
 
-        printf("unit_dependent_directory_offset: %08x\n", impl->unit_dependent_directory_offset);
+        if (debug)
+            printf("unit_dependent_directory_offset: %08x\n", impl->unit_dependent_directory_offset);
     }
 
     if (1) {
@@ -2340,7 +2349,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
         assert((tmp>>24)==0x40);
         impl->command_regs_base = 4*(tmp&0x00ffffff);
 
-        printf("command_regs_base: %08x\n", impl->command_regs_base);
+        if (debug)
+            printf("command_regs_base: %08x\n", impl->command_regs_base);
     }
 
 /*
@@ -2358,7 +2368,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
         if (do_read(impl->handle, CONFIG_ROM_BASE + impl->command_regs_base + 0x019c, &v_mode_inq_7, 1) != 1)
             goto error;
 
-        printf("v_mode_inq_7: %08x\n", v_mode_inq_7);
+        if (debug)
+            printf("v_mode_inq_7: %08x\n", v_mode_inq_7);
 
         v_mode_inq_7 = (v_mode_inq_7)>>24;
 
@@ -2371,7 +2382,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
 
                 mode_csr *= 4;
 
-                printf("mode %d csr %08x\n", mode, mode_csr);
+                if (debug)
+                    printf("mode %d csr %08x\n", mode, mode_csr);
 
                 int nquads = 32;
                 uint32_t quads[32];
@@ -2381,7 +2393,8 @@ image_source_t *image_source_pgusb_open(url_parser_t *urlp)
                 uint32_t cmodes = quads[5];
                 for (int cmode = 0; cmode < 11; cmode++) {
                     if (cmodes & (1<<(31-cmode))) {
-                        printf(" %d %s\n", cmode, COLOR_MODES[cmode]);
+                        if (debug)
+                            printf(" %d %s\n", cmode, COLOR_MODES[cmode]);
 
                         impl->formats = realloc(impl->formats, (impl->nformats+1) * sizeof(struct format));
                         impl->formats[impl->nformats].height = quads[0] & 0xffff;

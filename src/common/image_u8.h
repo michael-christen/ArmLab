@@ -16,8 +16,13 @@ struct image_u8
     uint8_t *buf;
 };
 
-// Create or load an image. returns NULL on failure
+// Create or load an image. returns NULL on failure. Uses default
+// stride alignment.
 image_u8_t *image_u8_create(int width, int height);
+
+// Force stride to be a multiple of 'alignment' bytes.
+image_u8_t *image_u8_create_alignment(int width, int height, int alignment);
+
 image_u8_t *image_u8_create_from_pnm(const char *path);
 
 void image_u8_destroy(image_u8_t *im);

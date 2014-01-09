@@ -116,8 +116,8 @@ char** image_source_enumerate()
     char **urls = calloc(1, sizeof(char*));
 
     urls = image_source_enumerate_v4l2(urls);
-    urls = image_source_enumerate_dc1394(urls);
     urls = image_source_enumerate_pgusb(urls);
+    urls = image_source_enumerate_dc1394(urls);
 
     return urls;
 }

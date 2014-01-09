@@ -4,13 +4,14 @@
 # CFLAGS and LDFLAGS themselves should NOT be set: that is the job
 # for the actual Makefiles (which will combine the flags given here)
 #
-# *** DO NOT SET CFLAGS or LDFLAGS  ***
+# *** DO NOT SET CFLAGS or LDFLAGS in this file ***
 #
 # Our recommended flags for all projects. Note -pthread specifies reentrancy
 
 # -Wno-format-zero-length: permit printf("");
 # -Wno-unused-parameter: permit a function to ignore an argument
-CFLAGS_STD   := -std=gnu99 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_REENTRANT -Wall -Wno-unused-parameter -Wno-format-zero-length -pthread
+CFLAGS_STD   := -std=gnu99 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_REENTRANT \
+		-Wall -Wno-unused-parameter -Wno-format-zero-length -pthread
 LDFLAGS_STD  := -lm
 
 ROOT_PATH   := $(subst /src/common.mk,,$(realpath $(lastword $(MAKEFILE_LIST))))
@@ -55,10 +56,6 @@ LDFLAGS_COMMON := $(LIB_PATH)/libcommon.a
 CFLAGS_GLIB  := `pkg-config --cflags glib-2.0 gmodule-2.0`
 LDFLAGS_GLIB := `pkg-config --libs glib-2.0 gmodule-2.0 gthread-2.0 gobject-2.0`
 
-# gsl (GNU scientific libraries)
-CFLAGS_GSL   := -DHAVE_INLINE `gsl-config --cflags`
-LDFLAGS_GSL  := `gsl-config --libs`
-
 # jpeg
 ifeq "$(shell test -f /usr/lib/libjpeg-ipp.so -o -f /usr/lib64/libjpeg-ipp.so && echo ipp)" "ipp"
 	LDFLAGS_JPEG := -ljpeg-ipp
@@ -69,15 +66,6 @@ endif
 # gtk
 CFLAGS_GTK   :=`pkg-config --cflags gtk+-2.0`
 LDFLAGS_GTK  :=`pkg-config --libs gtk+-2.0 gthread-2.0`
-
-CFLAGS_GTK_UTIL  := -I$(SRC_PATH) $(CFLAGS_GTK)
-LDFLAGS_GTK_UTIL := $(LIB_PATH)/libgtk_util.a $(LDFLAGS_GTK)
-
-# glade target path should be relative to one directory deep from common.mk
-GLADE_TARGET_PATH:=$(BIN_PATH)/glade
-CFLAGS_GLADE:=-DGLADE_TARGET_PATH='"$(GLADE_TARGET_PATH)"' \
-	`pkg-config --cflags libglade-2.0`
-LDFLAGS_GLADE:=`pkg-config --libs libglade-2.0` -rdynamic
 
 # lcm
 CFLAGS_LCM  := `pkg-config --cflags lcm`
@@ -106,29 +94,17 @@ LDFLAGS_GL   := -lGLU -lGLU -lglut
 # our gl util library
 LDFLAGS_GLUTIL := $(LIB_PATH)/libglutil.a
 
-CFLAGS_VIEWER  := $(CFLAGS_GTK_UTIL) $(CFLAGS_GTK) $(CFLAGS_GLIB) $(CFLAGS_GL)
-LDFLAGS_VIEWER := $(LIB_PATH)/libviewer.a $(LDFLAGS_GTK_UTIL) $(LDFLAGS_GL) $(LDFLAGS_COMMON) $(LDFLAGS_GLIB)
+# libusb-1.0
+CFLAGS_USB := `pkg-config --cflags libusb-1.0`
+LDFLAGS_USB := `pkg-config --libs libusb-1.0`
 
-# dgc library
-#CFLAGS_DGC  := -I$(SRC_PATH)
-#LDFLAGS_DGC := $(LIB_PATH)/libdgc.a $(LDFLAGS_LCMTYPES) $(LDFLAGS_LC)
-
-# mesh models
-MESH_MODEL_PATH:=$(ROOT_PATH)/../../meshmodels
-CFLAGS_MESHMODELS:=-DMESH_MODEL_PATH='"$(MESH_MODEL_PATH)"'
-
-LDFLAGS_VISION := $(LIB_PATH)/libvision.a
+# libpng
+CFLAGS_PNG := `pkg-config --cflags libpng`
+LDFLAGS_PNG := `pkg-config --libs libpng`
 
 # dc1394
-ENABLE_DC1394:=0
-
-ifeq ($(ENABLE_DC1394),1)
-ifeq "$(shell uname -s)" "Darwin"
-LDFLAGS_DC1394:=-ldc1394 -L/usr/local/lib
-else
-LDFLAGS_DC1394:=-ldc1394
-endif
-endif
+CFLAGS_DC1394 := `pkg-config --cflags libdc1394-2`
+LDFLAGS_DC1394 := `pkg-config --libs libdc1394-2`
 
 # Intel Integrated Performance Primitives
 IPPA:=
@@ -156,14 +132,12 @@ else
     LDFLAGS_IPP:=-L$(IPP_BASE)/sharedlib -Wl,-R$(IPP_BASE)/sharedlib $(IPP_LIBS)
 endif
 
-# libcam
-LDFLAGS_LIBCAM:=$(LIB_PATH)/libcam.a \
-				$(LDFLAGS_DGC) $(LDFLAGS_LCMTYPES) $(LDFLAGS_COMMON) \
-				$(LDFLAGS_GLIB) $(LDFLAGS_GTK) $(LDFLAGS_GL) \
-				$(LDFLAGS_JPEG) $(LDFLAGS_DC1394)
-
 # imagesource
-LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a -ldc1394 -lc -lpng -lusb-1.0
+CFLAGS_IMAGESOURCE = $(CFLAGS_COMMON) $(CFLAGS_STD)
+LDFLAGS_IMAGESOURCE = $(LDFLAGS_COMMON) $(LDFLAGS_STD)
+
+CFLAGS_IMAGESOURCE := $(CFLAGS_GTK) $(CFLAGS_USB) $(CFLAGS_PNG) $(CFLAGS_DC1394)
+LDFLAGS_IMAGESOURCE := $(LIB_PATH)/libimagesource.a $(LDFLAGS_GTK) $(LDFLAGS_USB) $(LDFLAGS_PNG) $(LDFLAGS_DC1394)
 
 %.o: %.c %.h
 	@echo "\t$@"

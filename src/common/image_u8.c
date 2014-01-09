@@ -5,9 +5,14 @@
 
 #include "image_u8.h"
 
-#define ALIGNMENT 16
+#define DEFAULT_ALIGNMENT 24
 
 image_u8_t *image_u8_create(int width, int height)
+{
+    return image_u8_create_alignment(width, height, DEFAULT_ALIGNMENT);
+}
+
+image_u8_t *image_u8_create_alignment(int width, int height, int alignment)
 {
     image_u8_t *im = (image_u8_t*) calloc(1, sizeof(image_u8_t));
 
@@ -15,8 +20,8 @@ image_u8_t *image_u8_create(int width, int height)
     im->height = height;
     im->stride = width;
 
-    if ((im->stride % ALIGNMENT) != 0)
-        im->stride += ALIGNMENT - (im->stride % ALIGNMENT);
+    if ((im->stride % DEFAULT_ALIGNMENT) != 0)
+        im->stride += DEFAULT_ALIGNMENT - (im->stride % DEFAULT_ALIGNMENT);
 
     im->buf = (uint8_t*) calloc(1, im->height*im->stride);
 
@@ -25,6 +30,9 @@ image_u8_t *image_u8_create(int width, int height)
 
 void image_u8_destroy(image_u8_t *im)
 {
+    if (!im)
+        return;
+
     free(im->buf);
     free(im);
 }

@@ -52,17 +52,29 @@ struct image_source
     // user allocates an image_source_format and the driver fills it in.
     // note: formats can change over time, so this (at best) is a guess.
     void (*get_format)(image_source_t *isrc, int idx, image_source_format_t *fmt);
+
+    // returns non-zero on error.
     int (*set_format)(image_source_t *isrc, int idx);
+
+    // returns non-zero on error.
     int (*set_named_format)(image_source_t *isrc, const char *desired_format);
+
     // return the index of the current format.
     int (*get_current_format)(image_source_t *isrc);
 
     ///////////////////////////////////////////////////
     // Acquisition control
 
+    // returns non-zero on error.
     int (*start)(image_source_t *isrc);
+
+    // returns non-zero on error.
     int (*get_frame)(image_source_t *isrc, image_source_data_t *frmd);
+
+    // returns non-zero on error.
     int (*release_frame)(image_source_t *isrc, image_source_data_t *frmd);
+
+    // returns non-zero on error.
     int (*stop)(image_source_t *isrc);
 
     ///////////////////////////////////////////////////

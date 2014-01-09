@@ -48,7 +48,7 @@ static void vxo_circle_init()
     }
 
     outline = vx_resc_copyf(outline_f, NVERTS*2);
-    fill_verts = vx_resc_copyf(fill_f, (NVERTS+2)*3);
+    fill_verts = vx_resc_copyf(fill_f, (NVERTS+2)*2);
     fill_normals = vx_resc_copyf(fill_norm_f, (NVERTS+2)*3);
 
     vx_resc_inc_ref(outline); // hold on to these references until vx_global_destroy()
@@ -91,7 +91,7 @@ vx_object_t * _vxo_circle_private(vx_style_t * style, ...)
                 vxo_chain_add(vc, vxo_lines(outline, NVERTS, GL_LINE_LOOP, sty));
                 break;
             case VXO_MESH_STYLE:
-                vxo_chain_add(vc, vxo_mesh(fill_verts, NVERTS, fill_normals, GL_TRIANGLE_FAN, sty));
+                vxo_chain_add(vc, vxo_mesh(fill_verts, NVERTS + 2, fill_normals, GL_TRIANGLE_FAN, sty));
                 break;
         }
     }

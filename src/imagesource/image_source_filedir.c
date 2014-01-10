@@ -16,6 +16,7 @@
 
 #include "common/string_util.h"
 #include "common/zarray.h"
+#include "common/pnm.h"
 
 #include <png.h>
 
@@ -168,6 +169,46 @@ void abort_(const char * s, ...)
     abort();
 }
 
+static int get_frame_pnm(image_source_t *isrc, image_source_data_t *frmd, const char *file_name)
+{
+    pnm_t *pnm = pnm_create_from_file(file_name);
+    if (!pnm)
+        return -1;
+
+    frmd->ifmt.width = pnm->width;
+    frmd->ifmt.height = pnm->height;
+    frmd->utime = utime_now();
+    frmd->priv = NULL;
+
+    switch (pnm->format) {
+        case 5: {
+            strcpy(frmd->ifmt.format, "GRAY");
+            frmd->datalen = pnm->width * pnm->height;
+            frmd->data = pnm->buf;
+            pnm->buf = NULL; // we stole your buffer.
+            pnm_destroy(pnm);
+            return 0;
+        }
+
+        case 6: {
+            strcpy(frmd->ifmt.format, "RGB");
+            frmd->datalen = pnm->width * pnm->height * 3;
+            frmd->data = pnm->buf;
+            pnm->buf = NULL; // we stole your buffer.
+            pnm_destroy(pnm);
+            return 0;
+        }
+
+        default: {
+            pnm_destroy(pnm);
+            return -1;
+        }
+    }
+
+    assert(0);
+    return 0;
+}
+
 static int get_frame_png(image_source_t *isrc, image_source_data_t *frmd, const char *file_name)
 {
     int res = -1;
@@ -226,7 +267,7 @@ static int get_frame_png(image_source_t *isrc, image_source_data_t *frmd, const 
 
         frmd->datalen = width * height;
         frmd->data = malloc(frmd->datalen);
-        frmd->utime = 0;
+        frmd->utime = utime_now();
         frmd->priv = NULL;
 
         row_pointers = malloc(sizeof(png_bytep) * height);
@@ -247,7 +288,7 @@ static int get_frame_png(image_source_t *isrc, image_source_data_t *frmd, const 
 
         frmd->datalen = width * height * 4;
         frmd->data = malloc(frmd->datalen);
-        frmd->utime = 0;
+        frmd->utime = utime_now();
         frmd->priv = NULL;
 
         row_pointers = malloc(sizeof(png_bytep) * height);
@@ -330,6 +371,10 @@ static int get_frame(image_source_t *isrc, image_source_data_t *frmd)
         int res = get_frame_png(isrc, frmd, path);
         if (res)
             return res;
+    } else if (str_ends_with(path, ".pnm") || str_ends_with(path, ".ppm")) {
+        int res = get_frame_pnm(isrc, frmd, path);
+        if (res)
+            return res;
     } else {
         printf("Unknown image type %s\n", path);
         impl->pos++;
@@ -402,7 +447,7 @@ static void add_path(image_source_t *isrc, char *path)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
 
-    if (str_ends_with(path, ".png")) {
+    if (str_ends_with(path, ".png") || str_ends_with(path, ".ppm") || str_ends_with(path, ".pnm")) {
         printf("image_source_filedir: adding path: %s\n", path);
         zarray_add(impl->files, &path);
     } else {

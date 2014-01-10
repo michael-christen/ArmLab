@@ -5,7 +5,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-    int stride;
 #endif
 
 typedef struct image_u32 image_u32_t;
@@ -23,6 +22,7 @@ struct image_u32
 
 // Create or load an image. returns NULL on failure
 image_u32_t *image_u32_create(int width, int height);
+image_u32_t *image_u32_create_alignment(int width, int height, int alignment);
 image_u32_t *image_u32_create_from_pnm(const char *path);
 
 void image_u32_destroy(image_u32_t *im);

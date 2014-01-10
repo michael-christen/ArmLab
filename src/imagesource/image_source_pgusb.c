@@ -17,6 +17,8 @@
 #include <assert.h>
 
 #include "common/string_util.h"
+#include "image_source.h"
+
 /*
 http://www.1394ta.org/press/WhitePapers/Firewire%20Reference%20Tutorial.pdf
 http://damien.douxchamps.net/ieee1394/libdc1394/iidc/IIDC_1.31.pdf
@@ -33,9 +35,6 @@ is running.
 */
 #define REQUEST_TIMEOUT_MS 100
 #define TIMEOUT_MS 0
-
-#define IMAGE_SOURCE_UTILS
-#include "image_source.h"
 
 #define IMPL_TYPE 0x7123b65a
 
@@ -161,6 +160,13 @@ static const char* COLOR_MODES[] = { "GRAY", "YUV422", "UYVY", "IYU2", "RGB",
 static const char* BAYER_MODES[] = { "BAYER_RGGB", "BAYER_GBRG", "BAYER_GRBG", "BAYER_BGGR" };
 
 #define CONFIG_ROM_BASE             0xFFFFF0000000ULL
+
+static int64_t utime_now()
+{
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+}
 
 // convert a base-16 number in ASCII ('len' characters long) to a 64
 // bit integer. Result is written to *ov, 0 is returned if parsing is
@@ -443,13 +449,13 @@ static uint64_t get_guid(libusb_device *dev)
     return ((uint64_t) config[3] << 32) | config[4];
 }
 
-char** image_source_enumerate_pgusb(char **urls)
+void image_source_enumerate_pgusb(zarray_t *urls)
 {
     libusb_context *context;
 
     if (libusb_init(&context) != 0) {
         printf("Couldn't initialize libusb\n");
-        return NULL;
+        return;
     }
 
     libusb_device **devs;
@@ -476,7 +482,8 @@ char** image_source_enumerate_pgusb(char **urls)
             if (guid != 0xffffffffffffffffULL) {
                 char buf[1024];
                 snprintf(buf, 1024, "pgusb://%"PRIx64, guid);
-                urls = string_array_add(urls, buf);
+                char *p = strdup(buf);
+                zarray_add(urls, &p);
             }
         }
     }
@@ -484,8 +491,6 @@ char** image_source_enumerate_pgusb(char **urls)
     libusb_free_device_list(devs, 1);
 
     libusb_exit(context);
-
-    return urls;
 }
 
 

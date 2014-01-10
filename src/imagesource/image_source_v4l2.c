@@ -12,8 +12,9 @@
 #include <errno.h>
 #include <stdint.h>
 
-#define IMAGE_SOURCE_UTILS
+
 #include "image_source.h"
+
 #define IMPL_TYPE 0x56344c32
 #define NUM_BUFFERS 4
 
@@ -43,6 +44,13 @@ struct impl_v4l2
 
     struct buffer           buffers[NUM_BUFFERS];
 };
+
+static int64_t utime_now()
+{
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+}
 
 static int num_formats(image_source_t *isrc)
 {
@@ -522,7 +530,7 @@ fail:
     return NULL;
 }
 
-char** image_source_enumerate_v4l2(char **urls)
+void image_source_enumerate_v4l2(zarray_t *urls)
 {
     for (int i = 0; i < 16; i++) {
         char buf[1024];
@@ -532,8 +540,7 @@ char** image_source_enumerate_v4l2(char **urls)
         if (res)
             continue;
         sprintf(buf, "v4l2:///dev/video%d", i);
-        urls = string_array_add(urls, buf);
+        char *p = strdup(buf);
+        zarray_add(urls, &p);
     }
-
-    return urls;
 }

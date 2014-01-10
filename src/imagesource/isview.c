@@ -99,17 +99,20 @@ int main(int argc, char *argv[] )
     if (zarray_size(args) > 0) {
         zarray_get(args, 0, &state->url);
     } else {
-        char **urls = image_source_enumerate();
+        zarray_t *urls = image_source_enumerate();
 
         printf("Cameras:\n");
-        for (int i = 0; urls[i] != NULL; i++)
-            printf("  %3d: %s\n", i, urls[i]);
+        for (int i = 0; i < zarray_size(urls); i++) {
+            char *url;
+            zarray_get(urls, i, &url);
+            printf("  %3d: %s\n", i, url);
+        }
 
-        if (urls[0] == NULL) {
+        if (zarray_size(urls) == 0) {
             printf("No cameras found.\n");
             exit(0);
         }
-        state->url = urls[0];
+        zarray_get(urls, 0, &state->url);
     }
 
     g_type_init();

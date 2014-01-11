@@ -12,35 +12,25 @@ LIBVX_OBJS = $(LIBVX_CORE_OBJS) $(LIBVX_USER_OBJS) $(LIBVX_DRAWABLE_OBJS)
 # The only objects with direct GL references are:
 LIBVXGL_OBJS = vx_gl_renderer.o glcontext.o glcontext-x11.o
 
-LIB = libvx.a
-DESTLIB=../../lib/$(LIB)
-
-LIBVXGL = libvxgl.a
-DESTLIBVXGL=../../lib/$(LIBVXGL)
-
+LIB_VX = ../../lib/libvx.a
+LIB_VXGL = ../../lib/libvxgl.a
 
 VX_REMOTE_TEST=../../bin/vx_remote_test
 
-ALL = $(DESTLIB) $(DESTLIBVXGL) vx_make_font
+ALL = $(LIB_VX) $(LIB_VXGL) vx_make_font
 
 #############################################################
 #gcc -shared -Wl,-soname,$(LIB) -o $(LIB) $(LIBVX_OBJS)
 
 all: $(ALL) fonts
 
-$(LIB):  $(LIBVX_OBJS)
+$(LIB_VX):  $(LIBVX_OBJS)
 	@echo "\t$@"
 	@ar rc $@ $^
 
-$(LIBVXGL):  $(LIBVXGL_OBJS)
+$(LIB_VXGL):  $(LIBVXGL_OBJS)
 	@echo "\t$@"
 	@ar rc $@ $^
-
-$(DESTLIB): $(LIB)
-	@cp $(LIB) $(DESTLIB)
-
-$(DESTLIBVXGL): $(LIBVXGL)
-	@cp $(LIBVXGL) $(DESTLIBVXGL)
 
 $(VX_REMOTE_TEST) : vx_remote_test.o $(LIB)
 	@echo "\t$@"

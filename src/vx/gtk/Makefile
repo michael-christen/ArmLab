@@ -4,8 +4,8 @@ include ../../common.mk
 CFLAGS = $(CFLAGS_STD) $(CFLAGS_COMMON) $(CFLAGS_VX) $(CFLAGS_GTK) -fPIC -O2
 LDFLAGS =  $(LDFLAGS_VX_GTK) $(LDFLAGS_VX)  $(LDFLAGS_COMMON)  $(LDFLAGS_STD)  $(LDFLAGS_GTK)
 
-LIB_GTK=libvxgtk.a
-DESTLIB_GTK=../../../lib/$(LIB_GTK)
+LIB_VXGTK=../../../lib/libvxgtk.a
+
 
 LIBVX_GTK_OBJS = vx_gtk_display_source.o vx_gtk_display.o gtkuimagepane.o vx_gtk_buffer_manager.o
 
@@ -14,12 +14,12 @@ VX_ZOO=../../../bin/vx_zoo
 VX_REMOTE_VIEWER=../../../bin/vx_remote_viewer
 VX_SCENE_VIEWER=../../../bin/vx_scene_viewer
 
-all: $(DESTLIB_GTK) $(VX_DEMO) $(VX_REMOTE_VIEWER) $(VX_SCENE_VIEWER) $(VX_ZOO)
+all: $(LIB_VXGTK) $(VX_DEMO) $(VX_REMOTE_VIEWER) $(VX_SCENE_VIEWER) $(VX_ZOO)
 
 $(DESTLIB_GTK) : $(LIB_GTK)
 	@cp $(LIB_GTK) $(DESTLIB_GTK)
 
-$(LIB_GTK):  $(LIBVX_GTK_OBJS)
+$(LIB_VXGTK):  $(LIBVX_GTK_OBJS)
 	@echo "\t$@"
 	@ar rc $@ $^
 

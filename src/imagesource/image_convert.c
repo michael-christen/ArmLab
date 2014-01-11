@@ -108,6 +108,47 @@ static image_u32_t *convert_rgb24_to_u32(image_source_data_t *frmd)
     return im;
 }
 
+static image_u32_t *convert_yu12_to_u32(image_source_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+    uint8_t *out = (uint8_t*) im->buf;
+    uint8_t *in = (uint8_t*) frmd->data;
+
+    assert (frmd->datalen == width*height + width*height / 4 + width*height / 4);
+
+    // assumes three separate image planes:
+    // 1) Y intensity at full resolution, (width*height bytes)
+    // 2) Cb chroma data at half resolution (width/2 * height/2 bytes)
+    // 2) Cr chroma data at half resolution (width/2 * height/2 bytes)
+    uint8_t *ys  = &in[0];
+    uint8_t *cbs = &in[width*height];
+    uint8_t *crs = &in[width*height + width*height/4];
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+
+            int yy = ys[y*width + x];
+            int cr = crs[(y/2)*(width/2) + (x/2)];
+            int cb = cbs[(y/2)*(width/2) + (x/2)];
+
+            int r = clamp((int) ((298.082*yy + 408.583*cr) / 256) - 222.921);
+            int g = clamp((int) ((298.082*yy - 100.291*cb - 208.120*cr) / 256) + 135.576);
+            int b = clamp((int) ((298.082*yy + 516.412*cb) / 256) - 276.836);
+
+            out[4*(y*stride+x) + 0] = r;
+            out[4*(y*stride+x) + 1] = g;
+            out[4*(y*stride+x) + 2] = b;
+            out[4*(y*stride+x) + 3] = 0xff;
+        }
+    }
+    return im;
+}
+
 static image_u32_t *convert_yuyv_to_u32(image_source_data_t *frmd)
 {
     assert(0);
@@ -631,8 +672,12 @@ image_u32_t *image_convert_u32(image_source_data_t *isdata)
     } else if (!strcmp("YUYV", isdata->ifmt.format)) {
         return convert_yuyv_to_u32(isdata);
 
+    } else if (!strcmp("YU12", isdata->ifmt.format)) {
+        return convert_yu12_to_u32(isdata);
+
     } else {
-        printf("ERR: Format %s not supported\n", isdata->ifmt.format);
+        printf("ERR: Format %s not supported. (width %d, height %d, datalen %d)\n",
+               isdata->ifmt.format, isdata->ifmt.width, isdata->ifmt.height, isdata->datalen);
     }
 
     return NULL;

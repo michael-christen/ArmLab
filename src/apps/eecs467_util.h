@@ -22,6 +22,7 @@
 #include "common/getopt.h"
 #include "common/image_u32.h"
 #include "common/pg.h"
+#include "common/zarray.h"
 
 // imagesource
 #include "imagesource/image_source.h"

@@ -1,6 +1,8 @@
-#include <gtk/gtk.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 
 #include "common/getopt.h"
 #include "common/image_u8x3.h"
@@ -11,6 +13,9 @@ typedef struct state state_t;
 struct state
 {
     char     *url; // image_source url
+    image_source_t *isrc;
+    int fidx;
+
     getopt_t *gopt;
 
     pthread_t runthread;
@@ -18,6 +23,7 @@ struct state
     GtkWidget *window;
     GtkWidget *image;
 
+    pthread_mutex_t mutex;
 };
 
 void my_gdkpixbufdestroy(guchar *pixels, gpointer data)
@@ -25,38 +31,47 @@ void my_gdkpixbufdestroy(guchar *pixels, gpointer data)
     free(pixels);
 }
 
+gint callback_func(GtkWidget *widget, GdkEventKey *event, gpointer callback_data)
+{
+    state_t *state = (state_t*) callback_data;
+    image_source_t *isrc = state->isrc;
+
+    switch (event->keyval) {
+        case GDK_KEY_Tab:
+            printf("tab\n");
+            state->fidx = (state->fidx + 1) % isrc->num_formats(isrc);
+            pthread_mutex_lock(&state->mutex);
+            isrc->stop(isrc);
+            isrc->set_format(isrc, state->fidx);
+            printf("set format %d\n", state->fidx);
+            isrc->start(isrc);
+            pthread_mutex_unlock(&state->mutex);
+            break;
+    }
+    printf("got callback\n");
+    return 0;
+}
+
 void *runthread(void *_p)
 {
     state_t *state = (state_t*) _p;
-
-    image_source_t *isrc = image_source_open(state->url);
-    if (isrc->start(isrc))
-        goto error;
-
-    printf("Image source formats:\n");
-    for (int i = 0; i < isrc->num_formats(isrc); i++) {
-        image_source_format_t ifmt;
-        isrc->get_format(isrc, i, &ifmt);
-        printf("\t%d\t%4d x %4d (%s)\n", i, ifmt.width, ifmt.height, ifmt.format);
-    }
-
-    printf("Image source features:\n");
-    for (int i = 0; i < isrc->num_features(isrc); i++) {
-        const char *feature_name = isrc->get_feature_name(isrc, i);
-        char *feature_type = isrc->get_feature_type(isrc, i);
-        double v = isrc->get_feature_value(isrc, i);
-
-        printf("\t%-20s [%-10s], current = %f\n", feature_name, feature_type, v);
-        free(feature_type);
-    }
+    image_source_t *isrc = state->isrc;
 
     while (1) {
 
         image_source_data_t isdata;
-        if (isrc->get_frame(isrc, &isdata))
+        image_u8x3_t *im = NULL;
+
+        pthread_mutex_lock(&state->mutex);
+        int res = isrc->get_frame(isrc, &isdata);
+        if (!res)
+            im = image_convert_u8x3(&isdata);
+        isrc->release_frame(isrc, &isdata);
+        pthread_mutex_unlock(&state->mutex);
+
+        if (res)
             goto error;
 
-        image_u8x3_t *im = image_convert_u8x3(&isdata);
         if (im != NULL) {
             gdk_threads_enter();
 
@@ -73,7 +88,7 @@ void *runthread(void *_p)
             gdk_threads_leave();
         }
 
-        isrc->release_frame(isrc, &isdata);
+        usleep(0);
     }
 
   error:
@@ -122,17 +137,50 @@ int main(int argc, char *argv[] )
     state->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(state->window), state->url);
 
-    state->image = gtk_image_new_from_file("/tmp/csedw.jpg");
+    pthread_mutex_init(&state->mutex, NULL);
+    state->image = gtk_image_new();
 
     gtk_container_add(GTK_CONTAINER(state->window), state->image);
     gtk_widget_show(state->image);
     gtk_widget_show(state->window);
 
+    g_signal_connect(state->window, "key_press_event",
+                     G_CALLBACK(callback_func), state);
+
+    //////////////////////////////////////////////////////////
+    state->isrc = image_source_open(state->url);
+    if (state->isrc == NULL) {
+        printf("Unable to open device %s\n", state->url);
+        exit(-1);
+    }
+
+    image_source_t *isrc = state->isrc;
+
+    if (isrc->start(isrc))
+        exit(-1);
+
+    state->fidx = isrc->get_current_format(isrc);
+
+    printf("Image source formats:\n");
+    for (int i = 0; i < isrc->num_formats(isrc); i++) {
+        image_source_format_t ifmt;
+        isrc->get_format(isrc, i, &ifmt);
+        printf("\t%d\t%4d x %4d (%s)\n", i, ifmt.width, ifmt.height, ifmt.format);
+    }
+
+    printf("Image source features:\n");
+    for (int i = 0; i < isrc->num_features(isrc); i++) {
+        const char *feature_name = isrc->get_feature_name(isrc, i);
+        char *feature_type = isrc->get_feature_type(isrc, i);
+        double v = isrc->get_feature_value(isrc, i);
+
+        printf("\t%-20s %10f     %s\n", feature_name, v, feature_type);
+        free(feature_type);
+    }
+
     pthread_create(&state->runthread, NULL, runthread, state);
 
     gtk_main();
-
-
 
     return 0;
 }

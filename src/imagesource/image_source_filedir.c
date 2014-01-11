@@ -182,7 +182,7 @@ static int get_frame_pnm(image_source_t *isrc, image_source_data_t *frmd, const 
 
     switch (pnm->format) {
         case 5: {
-            strcpy(frmd->ifmt.format, "GRAY");
+            strcpy(frmd->ifmt.format, "GRAY8");
             frmd->datalen = pnm->width * pnm->height;
             frmd->data = pnm->buf;
             pnm->buf = NULL; // we stole your buffer.
@@ -371,7 +371,7 @@ static int get_frame(image_source_t *isrc, image_source_data_t *frmd)
         int res = get_frame_png(isrc, frmd, path);
         if (res)
             return res;
-    } else if (str_ends_with(path, ".pnm") || str_ends_with(path, ".ppm")) {
+    } else if (str_ends_with(path, ".pnm") || str_ends_with(path, ".ppm") || str_ends_with(path, ".pgm")) {
         int res = get_frame_pnm(isrc, frmd, path);
         if (res)
             return res;
@@ -447,8 +447,8 @@ static void add_path(image_source_t *isrc, char *path)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_filedir_t *impl = (impl_filedir_t*) isrc->impl;
 
-    if (str_ends_with(path, ".png") || str_ends_with(path, ".ppm") || str_ends_with(path, ".pnm")) {
-        printf("image_source_filedir: adding path: %s\n", path);
+    if (str_ends_with(path, ".png") ||
+        str_ends_with(path, ".ppm") || str_ends_with(path, ".pnm") || str_ends_with(path, ".pgm")) {
         zarray_add(impl->files, &path);
     } else {
         printf("ignoring unknown file type: %s\n", path);
@@ -465,7 +465,7 @@ static int mysort(const void *_a, const void *_b)
 
 image_source_t *image_source_filedir_open(url_parser_t *urlp)
 {
-    const char *location = url_parser_get_location(urlp);
+    const char *location = url_parser_get_path(urlp);
 
     image_source_t *isrc = calloc(1, sizeof(image_source_t));
     isrc->impl_type = IMPL_TYPE;
@@ -475,14 +475,14 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
     impl->files = zarray_create(sizeof(char*));
 
     if (!strcmp(url_parser_get_protocol(urlp), "file://")) {
-        add_path(isrc, strdup(url_parser_get_location(urlp)));
+        add_path(isrc, strdup(url_parser_get_path(urlp)));
     }
 
     if (!strcmp(url_parser_get_protocol(urlp), "dir://")) {
-        DIR *dir = opendir(url_parser_get_location(urlp));
+        DIR *dir = opendir(url_parser_get_path(urlp));
 
         if (dir == NULL) {
-            printf("image_source_filedir: Directory not found: %s\n", url_parser_get_location(urlp));
+            printf("image_source_filedir: Directory not found: %s\n", url_parser_get_path(urlp));
             return NULL;
         }
 
@@ -501,16 +501,16 @@ image_source_t *image_source_filedir_open(url_parser_t *urlp)
     }
 
     zarray_sort(impl->files, mysort);
-    zarray_vmap(impl->files, (void*) puts);
 
     if (zarray_size(impl->files) == 0) {
         printf("image_source_filedir: didn't find any files.");
+        return NULL;
     }
 
     // fill in fmt. (These will be overwritten later.)
-    impl->width = 640;
-    impl->height = 480;
-    strcpy(impl->format, "RGB");
+    impl->width = 128;
+    impl->height = 128;
+    strcpy(impl->format, "NONE");
 
     impl->fps = 10;
     impl->timescale = 0;

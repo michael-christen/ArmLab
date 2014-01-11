@@ -1413,6 +1413,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     if (impl->started == 0) {
         printf("image_source_dc1394: get_frame called on a source that has not been started. Crash imminent.\n");
     }
@@ -1668,7 +1670,7 @@ static void print_info(image_source_t *isrc)
 image_source_t *image_source_dc1394_open(url_parser_t *urlp)
 {
 //    const char *protocol = url_parser_get_protocol(urlp);
-    const char *location = url_parser_get_location(urlp);
+    const char *location = url_parser_get_host(urlp);
 
     int64_t guid = 0;
 

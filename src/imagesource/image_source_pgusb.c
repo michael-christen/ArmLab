@@ -1026,6 +1026,9 @@ static int get_frame(image_source_t *isrc, image_source_data_t *frmd)
 {
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
+
+    memset(frmd, 0, sizeof(image_source_data_t));
+
 //    image_source_format_t *ifmt = get_format(isrc, get_current_format(isrc));
 
     int idx = get_ready_frame(impl);
@@ -1045,7 +1048,7 @@ static int release_frame(image_source_t *isrc, image_source_data_t *frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_pgusb_t *impl = (impl_pgusb_t*) isrc->impl;
 
-    void *imbuf = frmd-> data;
+    void *imbuf = frmd->data;
 
     int idx = -1;
     for (int i = 0; i < impl->nimages; i++) {
@@ -1053,6 +1056,10 @@ static int release_frame(image_source_t *isrc, image_source_data_t *frmd)
             idx = i;
             break;
         }
+    }
+
+    if (idx < 0) {
+        printf("%p\n", imbuf);
     }
 
     assert(idx >= 0);
@@ -1106,7 +1113,7 @@ static int stop(image_source_t *isrc)
     impl->worker_exit_flag = 1;
     pthread_join(impl->worker_thread, NULL);
 
-    printf("Worker thread exited\n");
+    printf("image_source_pgusb: worker thread exited\n");
 
     // We're now using the synchronous API again.
 
@@ -2241,7 +2248,7 @@ static int set_feature_value(image_source_t *isrc, int idx, double v)
 
 image_source_t *image_source_pgusb_open(url_parser_t *urlp)
 {
-    const char *location = url_parser_get_location(urlp);
+    const char *location = url_parser_get_host(urlp);
 
     libusb_context *context;
     if (libusb_init(&context) != 0) {

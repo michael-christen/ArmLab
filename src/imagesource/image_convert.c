@@ -3,11 +3,24 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "common/image_u32.h"
 #include "common/image_u8x3.h"
 
-static int clamp(int v)
+////////////////////////////////////////////
+// Guide to interpreting pixel formats
+//
+// U32  : byte-ordered R, G, B, A  (see image_u32.h)
+//
+// BGRA : byte-ordered B, G, R, A  (as used in 32BGRA on MacOS/iOS)
+//
+// RGBA : Format is byte-ordered, R, G, B, A.
+//
+// RGB / RGB24 / u8x3 : Format is byte-ordered, R, G, B
+//
+//
+static inline int clamp(int v)
 {
     if (v < 0)
         return 0;
@@ -16,6 +29,7 @@ static int clamp(int v)
     return v;
 }
 
+// byte-order B, G, R, A ==> R, G, B, A
 static image_u32_t *convert_bgra_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
@@ -24,25 +38,48 @@ static image_u32_t *convert_bgra_to_u32(image_source_data_t *frmd)
     int width = im->width;
     int height = im->height;
     int stride = im->stride;
-    uint32_t a = 0xff << 24;
 
-    uint32_t *bgra = (uint32_t*)(frmd->data);
+    uint8_t *out = (uint8_t*) im->buf;
+    uint8_t *in  = (uint8_t*) frmd->data;
 
-    // bgra ==> abgr
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            uint32_t v = bgra[y*width+x];
-            int r = (v >> 16) & 0xff;
-            int g = (v >> 8) & 0xff;
-            int b = (v >> 0) & 0xff;
+            int b = in[4*(y*width+x) + 0];
+            int g = in[4*(y*width+x) + 1];
+            int r = in[4*(y*width+x) + 2];
+            int a = in[4*(y*width+x) + 3];
 
-            im->buf[y*stride+x] = r | (g<<8) | (b<<16) | a;
+            out[4*(y*stride+x) + 0] = r;
+            out[4*(y*stride+x) + 1] = g;
+            out[4*(y*stride+x) + 2] = b;
+            out[4*(y*stride+x) + 3] = a;
         }
     }
 
     return im;
 }
 
+// byte-order R, G, B, A ==> R, G, B, A... i.e., a copy.
+static image_u32_t *convert_rgba_to_u32(image_source_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+
+    uint32_t *in = (uint32_t*) frmd->data;
+    uint32_t *out = (uint32_t*) im->buf;
+
+    for (int y = 0; y < height; y++) {
+        memcpy(&out[y*stride], &in[y*width], 4*width);
+    }
+
+    return im;
+}
+
+// byte-order R, G, B, ==> R, G, B, 0xff
 static image_u32_t *convert_rgb24_to_u32(image_source_data_t *frmd)
 {
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
@@ -51,18 +88,20 @@ static image_u32_t *convert_rgb24_to_u32(image_source_data_t *frmd)
     int width = im->width;
     int height = im->height;
     int stride = im->stride;
-    uint32_t a = 0xff << 24;
 
-    uint8_t *rgb = (uint8_t*)(frmd->data);
+    uint8_t *out = (uint8_t*) im->buf;
+    uint8_t *in  = (uint8_t*) frmd->data;
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int idx = (y*width+x)*3;
-            int r = rgb[idx+0];
-            int g = rgb[idx+1];
-            int b = rgb[idx+2];
+            int r = in[3*(y*width+x) + 0];
+            int g = in[3*(y*width+x) + 1];
+            int b = in[3*(y*width+x) + 2];
 
-            im->buf[y*stride+x] = r | (g<<8) | (b<<16) | a;
+            out[4*(y*stride+x) + 0] = r;
+            out[4*(y*stride+x) + 1] = g;
+            out[4*(y*stride+x) + 2] = b;
+            out[4*(y*stride+x) + 3] = 0xff;
         }
     }
 
@@ -71,6 +110,8 @@ static image_u32_t *convert_rgb24_to_u32(image_source_data_t *frmd)
 
 static image_u32_t *convert_yuyv_to_u32(image_source_data_t *frmd)
 {
+    assert(0);
+
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
 
@@ -111,6 +152,8 @@ static image_u32_t *convert_yuyv_to_u32(image_source_data_t *frmd)
 
 static image_u8x3_t *convert_yuyv_to_u8x3(image_source_data_t *frmd)
 {
+    assert(0);
+
     image_u8x3_t *im = image_u8x3_create(frmd->ifmt.width,
                                          frmd->ifmt.height);
 
@@ -154,6 +197,8 @@ static image_u8x3_t *convert_yuyv_to_u8x3(image_source_data_t *frmd)
 
 static image_u32_t *debayer_rggb_to_u32(image_source_data_t *frmd)
 {
+    assert(0);
+
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
 
@@ -237,12 +282,12 @@ static image_u32_t *debayer_gbrg_to_u32(image_source_data_t *frmd)
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);
 
-    uint8_t *d = (uint8_t*)(frmd->data);
-    uint32_t *out = im->buf;
+    uint8_t *in = (uint8_t*) frmd->data;
+    uint8_t *out = (uint8_t*) im->buf;
+
     int width = im->width;
     int height = im->height;
     int stride = im->stride;
-    uint32_t a = 0xff << 24;
 
     // Loop over each 2x2 bayer block and compute the pixel values for
     // each element
@@ -251,26 +296,26 @@ static image_u32_t *debayer_gbrg_to_u32(image_source_data_t *frmd)
             int r = 0, g = 0, b = 0;
 
             // compute indices into bayer pattern for the nine 2x2 blocks we'll use.
-            int X00 = (y-2)*stride+(x-2);
-            int X01 = (y-2)*stride+(x+0);
-            int X02 = (y-2)*stride+(x+2);
-            int X10 = (y+0)*stride+(x-2);
-            int X11 = (y+0)*stride+(x+0);
-            int X12 = (y+0)*stride+(x+2);
-            int X20 = (y+2)*stride+(x-2);
-            int X21 = (y+2)*stride+(x+0);
-            int X22 = (y+2)*stride+(x+2);
+            int X00 = (y-2)*width+(x-2);
+            int X01 = (y-2)*width+(x+0);
+            int X02 = (y-2)*width+(x+2);
+            int X10 = (y+0)*width+(x-2);
+            int X11 = (y+0)*width+(x+0);
+            int X12 = (y+0)*width+(x+2);
+            int X20 = (y+2)*width+(x-2);
+            int X21 = (y+2)*width+(x+0);
+            int X22 = (y+2)*width+(x+2);
 
             // handle the edges of the screen.
             if (y < 2) {
-                X00 += 2*stride;
-                X01 += 2*stride;
-                X02 += 2*stride;
+                X00 += 2*width;
+                X01 += 2*width;
+                X02 += 2*width;
             }
             if (y+2 >= height) {
-                X20 -= 2*stride;
-                X21 -= 2*stride;
-                X22 -= 2*stride;
+                X20 -= 2*width;
+                X21 -= 2*width;
+                X22 -= 2*width;
             }
             if (x < 2) {
                 X00 += 2;
@@ -283,29 +328,234 @@ static image_u32_t *debayer_gbrg_to_u32(image_source_data_t *frmd)
                 X22 -= 2;
             }
 
+            int idx = 4*(y*stride+x);
+
             // top left pixel (G)
-            r = ((d[X01+stride]&0xff) + (d[X11+stride]&0xff)) / 2;
-            g = d[X11]&0xff;
-            b = ((d[X10+1]&0xff) + (d[X11+1]&0xff)) / 2;;
-            out[y*stride+x] = r+(g<<8)+(b<<16)+a;
+            r = ((in[X01+width]) + (in[X11+width])) / 2;
+            g = in[X11];
+            b = ((in[X10+1]) + (in[X11+1])) / 2;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+            out[idx+3] = 0xff;
 
             // top right pixel (B)
-            r = ((d[X01+stride]&0xff)+(d[X02+stride]&0xff)+(d[X01+stride]&0xff) + (d[X12+stride]&0xff)) / 4;
-            g = ((d[X01+stride+1]&0xff)+(d[X11]&0xff)+(d[X12]&0xff)+(d[X11+stride+1]&0xff)) / 4;
-            b = (d[X11+1]&0xff);
-            out[y*stride+x+1] = r+(g<<8)+(b<<16)+a;
+            r = ((in[X01+width])+(in[X02+width])+(in[X01+width]) + (in[X12+width])) / 4;
+            g = ((in[X01+width+1])+(in[X11])+(in[X12])+(in[X11+width+1])) / 4;
+            b = (in[X11+1]);
+            out[idx+4] = r;
+            out[idx+5] = g;
+            out[idx+6] = b;
+            out[idx+7] = 0xff;
 
             // bottom left pixel (R)
-            r = (d[X11+stride]&0xff);
-            g = ((d[X11]&0xff)+(d[X10+stride+1]&0xff)+(d[X11+stride+1]&0xff)+(d[X21]&0xff)) / 4;
-            b = ((d[X10+1]&0xff)+(d[X11+1]&0xff)+(d[X20+1]&0xff)+(d[X21+1]&0xff)) / 4;
-            out[y*stride+stride+x] = r+(g<<8)+(b<<16)+a;
+            r = (in[X11+width]);
+            g = ((in[X11])+(in[X10+width+1])+(in[X11+width+1])+(in[X21])) / 4;
+            b = ((in[X10+1])+(in[X11+1])+(in[X20+1])+(in[X21+1])) / 4;
+
+            idx += 4*stride;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+            out[idx+3] = 0xff;
 
             // bottom right pixel (G)
-            r = ((d[X11+stride]&0xff)+(d[X12+stride]&0xff)) / 2;
-            g = (d[X11+stride+1]&0xff);
-            b = ((d[X11+1]&0xff)+(d[X21+1]&0xff)) / 2;
-            out[y*stride+stride+x+1] = r+(g<<8)+(b<<16)+a;
+            r = ((in[X11+width])+(in[X12+width])) / 2;
+            g = (in[X11+width+1]);
+            b = ((in[X11+1])+(in[X21+1])) / 2;
+            out[idx+4] = r;
+            out[idx+5] = g;
+            out[idx+6] = b;
+            out[idx+7] = 0xff;
+        }
+    }
+
+    return im;
+}
+
+// assumes MSB, LSB byte ordering
+static image_u32_t *debayer_gbrg16_to_u32(image_source_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
+
+    uint8_t *in = (uint8_t*) frmd->data;
+    uint8_t *out = (uint8_t*) im->buf;
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+
+    // Loop over each 2x2 bayer block and compute the pixel values for
+    // each element
+    for (int y = 0; y < height; y+=2) {
+        for (int x = 0; x < width; x+=2) {
+            int r = 0, g = 0, b = 0;
+
+            // compute indices into bayer pattern for the nine 2x2 blocks we'll use.
+            int X00 = (y-2)*width+(x-2);
+            int X01 = (y-2)*width+(x+0);
+            int X02 = (y-2)*width+(x+2);
+            int X10 = (y+0)*width+(x-2);
+            int X11 = (y+0)*width+(x+0);
+            int X12 = (y+0)*width+(x+2);
+            int X20 = (y+2)*width+(x-2);
+            int X21 = (y+2)*width+(x+0);
+            int X22 = (y+2)*width+(x+2);
+
+            // handle the edges of the screen.
+            if (y < 2) {
+                X00 += 2*width;
+                X01 += 2*width;
+                X02 += 2*width;
+            }
+            if (y+2 >= height) {
+                X20 -= 2*width;
+                X21 -= 2*width;
+                X22 -= 2*width;
+            }
+            if (x < 2) {
+                X00 += 2;
+                X10 += 2;
+                X20 += 2;
+            }
+            if (x+2 >= width) {
+                X02 -= 2;
+                X12 -= 2;
+                X22 -= 2;
+            }
+
+            int idx = 4*(y*stride+x);
+
+            // top left pixel (G)
+            r = ((in[2*(X01+width)]) + (in[2*(X11+width)])) / 2;
+            g = in[2*X11];
+            b = ((in[2*(X10+1)]) + (in[2*(X11+1)])) / 2;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+            out[idx+3] = 0xff;
+
+            // top right pixel (B)
+            r = ((in[2*(X01+width)])+(in[2*(X02+width)])+(in[2*(X01+width)]) + (in[2*(X12+width)])) / 4;
+            g = ((in[2*(X01+width+1)])+(in[2*X11])+(in[2*X12])+(in[2*(X11+width+1)])) / 4;
+            b = (in[2*(X11+1)]);
+            out[idx+4] = r;
+            out[idx+5] = g;
+            out[idx+6] = b;
+            out[idx+7] = 0xff;
+
+            // bottom left pixel (R)
+            r = (in[2*(X11+width)]);
+            g = ((in[2*X11])+(in[2*(X10+width+1)])+(in[2*(X11+width+1)])+(in[2*X21])) / 4;
+            b = ((in[2*(X10+1)])+(in[2*(X11+1)])+(in[2*(X20+1)])+(in[2*(X21+1)])) / 4;
+
+            idx += 4*stride;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+            out[idx+3] = 0xff;
+
+            // bottom right pixel (G)
+            r = ((in[2*(X11+width)])+(in[2*(X12+width)])) / 2;
+            g = (in[2*(X11+width+1)]);
+            b = ((in[2*(X11+1)])+(in[2*(X21+1)])) / 2;
+            out[idx+4] = r;
+            out[idx+5] = g;
+            out[idx+6] = b;
+            out[idx+7] = 0xff;
+        }
+    }
+
+    return im;
+}
+
+static image_u8x3_t *debayer_gbrg_to_u8x3(image_source_data_t *frmd)
+{
+    image_u8x3_t *im = image_u8x3_create(frmd->ifmt.width,
+                                         frmd->ifmt.height);
+
+    uint8_t *in = (uint8_t*) frmd->data;
+    uint8_t *out = (uint8_t*) im->buf;
+
+    int width = im->width;
+    int height = im->height;
+    int stride = im->stride;
+
+    // Loop over each 2x2 bayer block and compute the pixel values for
+    // each element
+    for (int y = 0; y < height; y+=2) {
+        for (int x = 0; x < width; x+=2) {
+            int r = 0, g = 0, b = 0;
+
+            // compute indices into bayer pattern for the nine 2x2 blocks we'll use.
+            int X00 = (y-2)*width+(x-2);
+            int X01 = (y-2)*width+(x+0);
+            int X02 = (y-2)*width+(x+2);
+            int X10 = (y+0)*width+(x-2);
+            int X11 = (y+0)*width+(x+0);
+            int X12 = (y+0)*width+(x+2);
+            int X20 = (y+2)*width+(x-2);
+            int X21 = (y+2)*width+(x+0);
+            int X22 = (y+2)*width+(x+2);
+
+            // handle the edges of the screen.
+            if (y < 2) {
+                X00 += 2*width;
+                X01 += 2*width;
+                X02 += 2*width;
+            }
+            if (y+2 >= height) {
+                X20 -= 2*width;
+                X21 -= 2*width;
+                X22 -= 2*width;
+            }
+            if (x < 2) {
+                X00 += 2;
+                X10 += 2;
+                X20 += 2;
+            }
+            if (x+2 >= width) {
+                X02 -= 2;
+                X12 -= 2;
+                X22 -= 2;
+            }
+
+            int idx = y*stride + 3*x;
+
+            // top left pixel (G)
+            r = ((in[X01+width]) + (in[X11+width])) / 2;
+            g = in[X11];
+            b = ((in[X10+1]) + (in[X11+1])) / 2;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+
+            // top right pixel (B)
+            r = ((in[X01+width])+(in[X02+width])+(in[X01+width]) + (in[X12+width])) / 4;
+            g = ((in[X01+width+1])+(in[X11])+(in[X12])+(in[X11+width+1])) / 4;
+            b = (in[X11+1]);
+            out[idx+3] = r;
+            out[idx+4] = g;
+            out[idx+5] = b;
+
+            // bottom left pixel (R)
+            r = (in[X11+width]);
+            g = ((in[X11])+(in[X10+width+1])+(in[X11+width+1])+(in[X21])) / 4;
+            b = ((in[X10+1])+(in[X11+1])+(in[X20+1])+(in[X21+1])) / 4;
+
+            idx += stride;
+            out[idx+0] = r;
+            out[idx+1] = g;
+            out[idx+2] = b;
+
+            // bottom right pixel (G)
+            r = ((in[X11+width])+(in[X12+width])) / 2;
+            g = (in[X11+width+1]);
+            b = ((in[X11+1])+(in[X21+1])) / 2;
+            out[idx+3] = r;
+            out[idx+4] = g;
+            out[idx+5] = b;
         }
     }
 
@@ -320,7 +570,25 @@ static image_u32_t *gray8_to_u32(image_source_data_t *frmd)
     for (int y = 0; y < im->height; y++) {
         for (int x = 0; x < im->width; x++) {
             int idx = y*im->width + x;
-            int gray = buf[idx] & 0xff;
+            int gray = buf[idx];
+            im->buf[y*im->stride+x] = (0xff000000) | gray << 16 | gray << 8 | gray;
+        }
+    }
+
+    return im;
+}
+
+// byte-order MSB, LSB
+static image_u32_t *gray16_to_u32(image_source_data_t *frmd)
+{
+    image_u32_t *im = image_u32_create(frmd->ifmt.width,
+                                       frmd->ifmt.height);
+    uint8_t *buf = (uint8_t*)(frmd->data);
+
+    for (int y = 0; y < im->height; y++) {
+        for (int x = 0; x < im->width; x++) {
+            int idx = y*im->width + x;
+            int gray = buf[2*idx];
             im->buf[y*im->stride+x] = (0xff000000) | gray << 16 | gray << 8 | gray;
         }
     }
@@ -334,8 +602,15 @@ image_u32_t *image_convert_u32(image_source_data_t *isdata)
     if (!strcmp("BAYER_GBRG", isdata->ifmt.format)) {
         return debayer_gbrg_to_u32(isdata);
 
-    } else if (!strcmp("GRAY8", isdata->ifmt.format)) {
+    } else if (!strcmp("BAYER_GBRG16", isdata->ifmt.format)) {
+        return debayer_gbrg16_to_u32(isdata);
+
+    } else if (!strcmp("GRAY8", isdata->ifmt.format) ||
+               !strcmp("GRAY", isdata->ifmt.format)) {
         return gray8_to_u32(isdata);
+
+    } else if (!strcmp("GRAY16", isdata->ifmt.format)) {
+        return gray16_to_u32(isdata);
 
     } else if (!strcmp("BAYER_RGGB", isdata->ifmt.format)) {
         return debayer_rggb_to_u32(isdata);
@@ -349,6 +624,9 @@ image_u32_t *image_convert_u32(image_source_data_t *isdata)
 
     } else if (!strcmp("BGRA", isdata->ifmt.format)) {
         return convert_bgra_to_u32(isdata);
+
+    } else if (!strcmp("RGBA", isdata->ifmt.format)) {
+        return convert_rgba_to_u32(isdata);
 
     } else if (!strcmp("YUYV", isdata->ifmt.format)) {
         return convert_yuyv_to_u32(isdata);
@@ -364,7 +642,10 @@ static int image_convert_u8x3_slow_warned = 0;
 
 image_u8x3_t *image_convert_u8x3(image_source_data_t *isdata)
 {
-    if (!strcmp("YUYV", isdata->ifmt.format)) {
+    if (!strcmp("BAYER_GBRG", isdata->ifmt.format)) {
+        return debayer_gbrg_to_u8x3(isdata);
+
+    } else if (!strcmp("YUYV", isdata->ifmt.format)) {
         return convert_yuyv_to_u8x3(isdata);
     }
 

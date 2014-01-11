@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+// supports ppm, pnm, pgm
+
 typedef struct pnm pnm_t;
 struct pnm
 {

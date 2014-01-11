@@ -114,6 +114,10 @@ static int set_format(image_source_t *isrc, int idx)
 static int set_named_format(image_source_t *isrc, const char *desired_format)
 {
     assert(isrc->impl_type == IMPL_TYPE);
+
+    printf("not implemented\n");
+    assert(0);
+
     return 0;
 }
 

@@ -109,14 +109,6 @@ struct image_source
 };
 
 image_source_t *image_source_open(const char *url);
-image_source_t *image_source_v4l2_open(const char *path);
-image_source_t *image_source_dc1394_open(url_parser_t *urlp);
-image_source_t *image_source_islog_open(url_parser_t *urlp);
-image_source_t *image_source_pgusb_open(url_parser_t *urlp);
-image_source_t *image_source_filedir_open(url_parser_t *urlp);
-image_source_t *image_source_tcp_open(url_parser_t *urlp);
-image_source_t *image_source_null_open(url_parser_t *urlp);
-
 zarray_t *image_source_enumerate();
 void image_source_enumerate_free(zarray_t *urls);
 

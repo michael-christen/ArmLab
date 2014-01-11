@@ -236,6 +236,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)//void **i
     assert(isrc->impl_type == IMPL_TYPE);
     impl_v4l2_t *impl = (impl_v4l2_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     fd_set fds;
 
     FD_ZERO (&fds);
@@ -393,8 +395,10 @@ static void print_info(image_source_t *isrc)
     }
 }
 
-image_source_t *image_source_v4l2_open(const char *path)
+image_source_t *image_source_v4l2_open(url_parser_t *urlp)
 {
+    const char *path = url_parser_get_path(urlp);
+
     image_source_t *isrc = calloc(1, sizeof(image_source_t));
     impl_v4l2_t *impl = calloc(1, sizeof(impl_v4l2_t));
 

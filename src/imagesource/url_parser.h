@@ -3,15 +3,23 @@
 
 typedef struct url_parser url_parser_t;
 
-// returns null if error.
+// In the examples below, consider the input:
+// URL = http://www.google.com:8080/search?q=a
+
 url_parser_t *url_parser_create(const char *s);
 void url_parser_destroy(url_parser_t *urlp);
 
-// e.g., http://.
+// e.g., "http://"
 const char* url_parser_get_protocol(url_parser_t *urlp);
 
-// e.g., www.google.com/foobar
-const char* url_parser_get_location(url_parser_t *urlp);
+// e.g., "www.google.com"
+const char* url_parser_get_host(url_parser_t *urlp);
+
+// "/search"  (and if no path is specified, just "/")
+const char* url_parser_get_path(url_parser_t *urlp);
+
+// e.g. 8080 (or -1 if no port specified)
+int url_parser_get_port(url_parser_t *urlp);
 
 // returns null def if no parameter specified.
 const char* url_parser_get_parameter(url_parser_t *urlp, const char *key, const char *def);

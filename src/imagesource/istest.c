@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "common/zarray.h"
+
 #include "image_source.h"
 
 #define BUFSIZE (1024*1024)
@@ -16,17 +18,21 @@ int main(int argc, char *argv[])
     } else {
         // otherwise, show all cameras and use the first one.
 
-        char **urls = image_source_enumerate();
-        printf("Cameras:\n");
-        for (int i = 0; urls[i] != NULL; i++)
-            printf("  %3d: %s\n", i, urls[i]);
+        zarray_t *urls = image_source_enumerate();
 
-        if (urls[0]==NULL) {
+        printf("Cameras:\n");
+        for (int i = 0; zarray_size(urls); i++) {
+            char *url;
+            zarray_get(urls, i, &url);
+            printf("  %3d: %s\n", i, url);
+        }
+
+        if (zarray_size(urls) == 0) {
             printf("Found no cameras.\n");
             return -1;
         }
 
-        url = urls[0];
+        zarray_get(urls, 0, &url);
     }
 
     image_source_t *isrc = image_source_open(url);

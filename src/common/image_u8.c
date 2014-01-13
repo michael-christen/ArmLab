@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "image_u8.h"
+#include "pnm.h"
 
 #define DEFAULT_ALIGNMENT 24
 
@@ -20,8 +21,8 @@ image_u8_t *image_u8_create_alignment(int width, int height, int alignment)
     im->height = height;
     im->stride = width;
 
-    if ((im->stride % DEFAULT_ALIGNMENT) != 0)
-        im->stride += DEFAULT_ALIGNMENT - (im->stride % DEFAULT_ALIGNMENT);
+    if ((im->stride % alignment) != 0)
+        im->stride += alignment - (im->stride % alignment);
 
     im->buf = (uint8_t*) calloc(1, im->height*im->stride);
 
@@ -40,70 +41,43 @@ void image_u8_destroy(image_u8_t *im)
 ////////////////////////////////////////////////////////////
 // PNM file i/o
 
-// Create a grayscale image from PNM.
-// TODO Refactor this to load u32 and convert to u8 using existing function
 image_u8_t *image_u8_create_from_pnm(const char *path)
 {
-    int width, height, format;
-    image_u8_t *im = NULL;
-    uint8_t *buf = NULL;
-
-    FILE *f = fopen(path, "rb");
-    if (f == NULL)
+    pnm_t *pnm = pnm_create_from_file(path);
+    if (pnm == NULL)
         return NULL;
 
-    if (3 != fscanf(f, "P%d\n%d %d\n255", &format, &width, &height))
-        goto error;
+    image_u8_t *im = image_u8_create(pnm->width, pnm->height);
 
-    // Format 5 == Binary Gray
-    // Format 6 == Binary RGB
-    im = image_u8_create(width, height);
+    switch (pnm->format) {
+        case 5: {
+            for (int y = 0; y < im->height; y++)
+                memcpy(&im->buf[y*im->stride], &pnm->buf[y*im->width], im->width);
 
-    // Dump one character, new line after 255
-    int res = fread(im->buf, 1, 1, f);
-    if (res != 1)
-        goto error;
+            pnm_destroy(pnm);
+            return im;
+        }
 
-    int sz = im->width*im->height;
-    if (format == 6) {
-        sz *= 3;
-    }
+        case 6: {
+            // Gray conversion for RGB is gray = (r + g + g + b)/4
+            for (int y = 0; y < im->height; y++) {
+                for (int x = 0; x < im->width; x++) {
+                    uint8_t gray = (pnm->buf[y*im->width*3 + x+0] +    // r
+                                    pnm->buf[y*im->width*3 + x+1] +    // g
+                                    pnm->buf[y*im->width*3 + x+1] +    // g
+                                    pnm->buf[y*im->width*3 + x+2])     // b
+                        / 4;
 
-    buf = calloc(1, sz);
-    if (sz != fread(buf, 1, sz, f))
-        goto error;
-
-    // Copy data from buf to the image buffer. Convert to gray if necessary
-    // Gray conversion for RGB is gray = (r + g + g + b)/4
-    for (int y = 0; y < im->height; y++) {
-        for (int x = 0; x < im->width; x++) {
-            uint8_t gray = 0;
-            if (format == 5) {
-                gray = buf[y*im->width + x];
-            } else if (format == 6) {
-                gray = (buf[y*im->width*3 + x] +      // r
-                        buf[y*im->width*3 + x+1] +    // g
-                        buf[y*im->width*3 + x+1] +    // g
-                        buf[y*im->width*3 + x+2]) /   // b
-                        4;
+                    im->buf[y*im->stride + x] = gray;
+                }
             }
-            im->buf[y*im->stride + x] = gray;
+
+            pnm_destroy(pnm);
+            return im;
         }
     }
 
-    free(buf);
-    fclose(f);
-    return im;
-
-error:
-    fclose(f);
-    printf("Failed to read image %s\n",path);
-    if (im != NULL)
-        image_u8_destroy(im);
-
-    if (buf != NULL)
-        free(buf);
-
+    pnm_destroy(pnm);
     return NULL;
 }
 

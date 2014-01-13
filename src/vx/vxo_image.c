@@ -2,6 +2,14 @@
 #include "vx_program.h"
 #include "vx_codes.h"
 
+// assumes an image whose byte order is R, G, B, A
+// (that's (a<<24)+(b<<16)+(g<<8)+(r<<0) on little endian machines (x86, ARM)
+// or (r<<24)+(g<<16)+(b<<8)+(a<<0) on big endian machines.
+vx_object_t * vxo_image_from_u32(image_u32_t *im, int img_flags, int tex_flags)
+{
+    vx_resc_t *buf = vx_resc_copyui(im->buf, im->stride * im->height);
+    return vxo_image_texflags(buf, im->width, im->height, GL_RGBA, img_flags, tex_flags);
+}
 
 vx_object_t * vxo_image(vx_resc_t * tex, int width, int height, int format, int img_flags)
 {

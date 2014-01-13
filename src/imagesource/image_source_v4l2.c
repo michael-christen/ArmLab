@@ -12,8 +12,9 @@
 #include <errno.h>
 #include <stdint.h>
 
-#define IMAGE_SOURCE_UTILS
+
 #include "image_source.h"
+
 #define IMPL_TYPE 0x56344c32
 #define NUM_BUFFERS 4
 
@@ -43,6 +44,13 @@ struct impl_v4l2
 
     struct buffer           buffers[NUM_BUFFERS];
 };
+
+static int64_t utime_now()
+{
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+}
 
 static int num_formats(image_source_t *isrc)
 {
@@ -228,6 +236,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)//void **i
     assert(isrc->impl_type == IMPL_TYPE);
     impl_v4l2_t *impl = (impl_v4l2_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     fd_set fds;
 
     FD_ZERO (&fds);
@@ -385,8 +395,10 @@ static void print_info(image_source_t *isrc)
     }
 }
 
-image_source_t *image_source_v4l2_open(const char *path)
+image_source_t *image_source_v4l2_open(url_parser_t *urlp)
 {
+    const char *path = url_parser_get_path(urlp);
+
     image_source_t *isrc = calloc(1, sizeof(image_source_t));
     impl_v4l2_t *impl = calloc(1, sizeof(impl_v4l2_t));
 
@@ -522,7 +534,7 @@ fail:
     return NULL;
 }
 
-char** image_source_enumerate_v4l2(char **urls)
+void image_source_enumerate_v4l2(zarray_t *urls)
 {
     for (int i = 0; i < 16; i++) {
         char buf[1024];
@@ -532,8 +544,7 @@ char** image_source_enumerate_v4l2(char **urls)
         if (res)
             continue;
         sprintf(buf, "v4l2:///dev/video%d", i);
-        urls = string_array_add(urls, buf);
+        char *p = strdup(buf);
+        zarray_add(urls, &p);
     }
-
-    return urls;
 }

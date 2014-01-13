@@ -4,10 +4,17 @@
 #include <string.h>
 
 #include "image_u32.h"
+#include "pnm.h"
 
-#define ALIGNMENT 4
+#define DEFAULT_ALIGNMENT 8
 
 image_u32_t *image_u32_create(int width, int height)
+{
+    return image_u32_create_alignment(width, height, DEFAULT_ALIGNMENT);
+}
+
+// alignment specified in units of uint32
+image_u32_t *image_u32_create_alignment(int width, int height, int alignment)
 {
     image_u32_t *im = (image_u32_t*) calloc(1, sizeof(image_u32_t));
 
@@ -15,8 +22,8 @@ image_u32_t *image_u32_create(int width, int height)
     im->height = height;
     im->stride = width;
 
-    if ((im->stride % ALIGNMENT) != 0)
-        im->stride += ALIGNMENT - (im->stride % ALIGNMENT);
+    if ((im->stride % alignment) != 0)
+        im->stride += alignment - (im->stride % alignment);
 
     im->buf = (uint32_t*) calloc(1, im->height*im->stride*sizeof(uint32_t));
 
@@ -25,6 +32,9 @@ image_u32_t *image_u32_create(int width, int height)
 
 void image_u32_destroy(image_u32_t *im)
 {
+    if (im == NULL)
+        return;
+
     free(im->buf);
     free(im);
 }
@@ -36,68 +46,44 @@ void image_u32_destroy(image_u32_t *im)
 // TODO Refactor this to load u32 and convert to u32 using existing function
 image_u32_t *image_u32_create_from_pnm(const char *path)
 {
-    int width, height, format;
-    image_u32_t *im = NULL;
-    uint8_t *buf = NULL;
-
-    FILE *f = fopen(path, "rb");
-    if (f == NULL)
+    pnm_t *pnm = pnm_create_from_file(path);
+    if (pnm == NULL)
         return NULL;
 
-    if (3 != fscanf(f, "P%d\n%d %d\n255", &format, &width, &height))
-        goto error;
+    image_u32_t *im = image_u32_create(pnm->width, pnm->height);
 
-    // Format 5 == Binary Gray
-    // Format 6 == Binary RGB
-    im = image_u32_create(width, height);
-
-    // Dump one character, new line after 255
-    int res = fread(im->buf, 1, 1, f);
-    if (res != 1)
-        goto error;
-
-    int sz = im->width*im->height;
-    if (format == 6) {
-        sz *= 3;
-    }
-
-    buf = calloc(1, sz);
-    if (sz != fread(buf, 1, sz, f))
-        goto error;
-
-
-    // Copy data from buf to the image buffer. Don't forget to compensate for
-    // alignment
-    for (int y = 0; y < im->height; y++) {
-        for (int x = 0; x < im->width; x++) {
-            uint32_t abgr = 0;
-            if (format == 5) {
-                uint8_t gray = buf[y*im->width + x];
-                abgr = gray | (gray << 8) | (gray << 16) | (0xff << 24);
-            } else if (format == 6) {
-                uint8_t a = 0xff;
-                uint8_t r = buf[y*im->width*3 + 3*x];
-                uint8_t g = buf[y*im->width*3 + 3*x+1];
-                uint8_t b = buf[y*im->width*3 + 3*x+2];
-                abgr = (a & 0xff) << 24 | (b & 0xff) << 16 | (g & 0xff) << 8 | r;
+    switch (pnm->format) {
+        case 5: {
+            for (int y = 0; y < im->height; y++) {
+                for (int x = 0; x < im->width; x++) {
+                    uint8_t gray = pnm->buf[y*im->width + x];
+                    im->buf[y*im->stride + x] = 0xff000000 | (gray << 16) | (gray << 8) | (gray << 0);
+                }
             }
-            im->buf[y*im->stride + x] = abgr;
+
+            pnm_destroy(pnm);
+            return im;
+        }
+
+        case 6: {
+            // Gray conversion for RGB is gray = (r + g + g + b)/4
+            for (int y = 0; y < im->height; y++) {
+                for (int x = 0; x < im->width; x++) {
+                    uint8_t a = 0xff;
+                    uint8_t r = pnm->buf[y*im->width*3 + 3*x];
+                    uint8_t g = pnm->buf[y*im->width*3 + 3*x+1];
+                    uint8_t b = pnm->buf[y*im->width*3 + 3*x+2];
+
+                    im->buf[y*im->stride + x] = (a & 0xff) << 24 | (b & 0xff) << 16 | (g & 0xff) << 8 | r;
+                }
+            }
+
+            pnm_destroy(pnm);
+            return im;
         }
     }
 
-    free(buf);
-    fclose(f);
-    return im;
-
-error:
-    fclose(f);
-    printf("Failed to read image %s\n",path);
-    if (im != NULL)
-        image_u32_destroy(im);
-
-    if (buf != NULL)
-        free(buf);
-
+    pnm_destroy(pnm);
     return NULL;
 }
 

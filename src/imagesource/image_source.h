@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "common/zarray.h"
+
 #include "url_parser.h"
 
 #define IMAGE_SOURCE_MAX_FORMAT_LENGTH 32
@@ -107,48 +109,8 @@ struct image_source
 };
 
 image_source_t *image_source_open(const char *url);
-image_source_t *image_source_v4l2_open(const char *path);
-image_source_t *image_source_dc1394_open(url_parser_t *urlp);
-image_source_t *image_source_islog_open(url_parser_t *urlp);
-image_source_t *image_source_pgusb_open(url_parser_t *urlp);
-image_source_t *image_source_filedir_open(url_parser_t *urlp);
-image_source_t *image_source_tcp_open(url_parser_t *urlp);
-
-char** image_source_enumerate();
-void image_source_enumerate_free(char **b);
-
-/** Adds URLs to 'urls' **/
-char** image_source_enumerate_v4l2(char **urls);
-char** image_source_enumerate_dc1394(char **urls);
-char** image_source_enumerate_pgusb(char **urls);
-
-#endif
-
-#ifdef IMAGE_SOURCE_UTILS
-
-// for use by image sources during enumeration.
-static char** string_array_add(char **strs, char *s)
-{
-    // how long is the array now? (How many non-null entries?)
-    int len;
-    for (len = 0; strs[len]!=NULL; len++);
-
-    // make room for one more entry (plus the NULL).
-    strs = realloc(strs, sizeof(char*)*(len+2));
-    strs[len] = strdup(s);
-    strs[len+1] = NULL;
-
-    return strs;
-}
-
-// lightweight replacement for timestamp.h
-#include <sys/time.h>
-static int64_t utime_now()
-{
-    struct timeval tv;
-    gettimeofday (&tv, NULL);
-    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
-}
+zarray_t *image_source_enumerate();
+void image_source_enumerate_free(zarray_t *urls);
 
 #endif
 

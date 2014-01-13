@@ -9,7 +9,7 @@ LIB_IMAGESOURCE = ../../lib/libimagesource.a
 
 ISVIEW = ../../bin/isview
 
-ALL = $(LIB_IMAGESOUCE) istest tcpstream $(ISVIEW)
+ALL = $(LIB_IMAGESOURCE) istest tcpstream $(ISVIEW)
 
 #############################################################
 # MacOS X

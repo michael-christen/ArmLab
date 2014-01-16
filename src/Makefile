@@ -1,6 +1,6 @@
 # Only add your directories to this folder if you are 100% sure that
 # it will always compile without warnings.
-SUBDIRS = common imagesource vx vx/gtk apps
+SUBDIRS = common imagesource vx vx/gtk dynamixel apps
 
 MAKEFLAGS += --no-print-directory
 

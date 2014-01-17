@@ -1,10 +1,14 @@
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "dynamixel_bus.h"
 #include "axseries.h"
 #include "mxseries.h"
 
 // === Messages (passed to and from the dynamixel devices over the bus ===
 
-dynamixel_msg_t* msg_create(int len)
+dynamixel_msg_t* dynamixel_msg_create(int len)
 {
     dynamixel_msg_t *msg = malloc(sizeof(dynamixel_msg_t));
     msg->len = len;
@@ -12,39 +16,47 @@ dynamixel_msg_t* msg_create(int len)
     return msg;
 }
 
-void msg_destroy(dynamixel_msg_t* msg)
+void dynamixel_msg_destroy(dynamixel_msg_t* msg)
 {
     free(msg->buf);
     free(msg);
 }
 
+void dynamixel_msg_dump(dynamixel_msg_t *msg)
+{
+    for (int i = 0; i < msg->len; i++)
+        printf("%02x ", msg->buf[i] & 0xff);
+    printf("\n");
+}
+
+
 // === Bus Default Implementation =============
 
-void set_retry_enable(dynamixel_bus_t *bus, bool retry_enable)
+void dynamixel_bus_set_retry_enable(dynamixel_bus_t *bus, int retry_enable)
 {
     bus->retry_enable = retry_enable;
 }
 
-void get_servo_model(dynamixel_bus_t *bus, uint8_t id)
+int dynamixel_bus_get_servo_model(dynamixel_bus_t *bus, uint8_t id)
 {
-    dynamixel_msg_t *msg = msg_create(2);
+    dynamixel_msg_t *msg = dynamixel_msg_create(2);
     msg->buf[0] = 0x00;
     msg->buf[1] = 3;
     dynamixel_msg_t *resp = bus->send_command(bus,
                                               id,
                                               INST_READ_DATA,
                                               msg,
-                                              false);
-    msg_destroy(msg);
+                                              0);
+    dynamixel_msg_destroy(msg);
     if (resp == NULL)
         return -1;
 
     int v = (resp->buf[1] & 0xff) + ((resp->buf[2] & 0xff) << 8);
-    msg_destroy(resp);
+    dynamixel_msg_destroy(resp);
     return v;
 }
 
-dynamixel_device_t* get_servo(dynamixel_bus_t *bus, uint8_t id)
+dynamixel_device_t* dynamixel_bus_get_servo(dynamixel_bus_t *bus, uint8_t id)
 {
     int model = bus->get_servo_model(bus, id);
     if (model < 0)
@@ -70,17 +82,20 @@ dynamixel_device_t* get_servo(dynamixel_bus_t *bus, uint8_t id)
 dynamixel_bus_t* dynamixel_bus_create_default()
 {
     dynamixel_bus_t *bus = malloc(sizeof(dynamixel_bus_t));
-    bus->retry_enable = true;
+    bus->retry_enable = 1;
 
     // Set default functions
-    bus->set_retry_enable = set_retry_enable;
-    bus->get_servo_model = get_servo_model;
-    bus->get_servo = get_servo;
+    bus->set_retry_enable = dynamixel_bus_set_retry_enable;
+    bus->get_servo_model = dynamixel_bus_get_servo_model;
+    bus->get_servo = dynamixel_bus_get_servo;
+
+    // User will need to fill the following:
+    // bus->send_command
 
     return bus;
 }
 
-void dynamixel_bus_destroy_default()
+void dynamixel_bus_destroy_default(dynamixel_bus_t *bus)
 {
     free(bus);
 }

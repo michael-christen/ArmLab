@@ -105,26 +105,6 @@ static inline int64_t imax64(int64_t a, int64_t b)
     return (a > b) ? a : b;
 }
 
-static inline float fmin(float a, float b)
-{
-    return (a < b) ? a : b;
-}
-
-static inline float dmax(float a, float b)
-{
-    return (a > b) ? a : b;
-}
-
-static inline double dmin(double a, double b)
-{
-    return (a < b) ? a : b;
-}
-
-static inline double dmax(double a, double b)
-{
-    return (a > b) ? a : b;
-}
-
 static inline int iclamp(int v, int minv, int maxv)
 {
     return imax(minv, imin(v, maxv));

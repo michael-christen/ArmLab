@@ -13,7 +13,7 @@
 #define ERROR_ANGLE_LIMIT (1 << 1)
 #define ERROR_VOLTAGE     (1 << 0)
 
-typedef struct dynamixel_status dynamixel_status_t
+typedef struct dynamixel_status dynamixel_status_t;
 struct dynamixel_status
 {
     double position_radians;
@@ -22,36 +22,33 @@ struct dynamixel_status
     double voltage;
     double temperature;
 
-    bool continuous;
+    int continuous;
     int error_flags;
 };
 
-typedef struct dynamixel_device dynamixel_device_t
+typedef struct dynamixel_device dynamixel_device_t;
 struct dynamixel_device
 {
     void *impl;
 
     dynamixel_bus_t *bus;
     int id;
-    bool rotation_mode; // =false XXX
-
-    // Maintenance
-    void (*bus_destroy)(dynamixel_bus_t* bus);
+    int rotation_mode;
 
     // === General functionality ===============================
     dynamixel_msg_t* (*ensure_EEPROM)(dynamixel_device_t* device, dynamixel_msg_t* params);
-    int (*is_address_EEPROM)(uint8_t addr);
+    int (*is_address_EEPROM)(int addr);
     int (*get_firmware_version)(dynamixel_device_t* device);
 
     void (*idle)(dynamixel_device_t* device);
-    // Returns true if device is on the bus
-    bool (*ping)(dynamixel_device_t* device);
+    // Returns >0 if device is on the bus
+    int (*ping)(dynamixel_device_t* device);
 
     // Read/write data from/to specified address.
-    uint8_t* (*read)(dynamixel_device_t* device, dynamixel_msg_t* params, bool retry);
-    uint8_t* (*read_noretry)(dynamixel_device_t* device, dynamixel_msg_t* params, uint8_t num_bytes);
-    uint8_t* (*write_to_RAM_noretry)(dynamixel_device_t* device, dynamixel_msg_t* params);
-    uint8_t* (*write_to_RAM)(dynamixel_device_t* device, dynamixel_msg_t* params, bool retry);
+    dynamixel_msg_t* (*read)(dynamixel_device_t* device, dynamixel_msg_t* params, int retry);
+    dynamixel_msg_t* (*read_noretry)(dynamixel_device_t* device, dynamixel_msg_t* params, uint8_t num_bytes);
+    dynamixel_msg_t* (*write_to_RAM_noretry)(dynamixel_device_t* device, dynamixel_msg_t* params);
+    dynamixel_msg_t* (*write_to_RAM)(dynamixel_device_t* device, dynamixel_msg_t* params, int retry);
 
 
     void (*set_baud)(dynamixel_device_t* device, int baud);
@@ -59,7 +56,7 @@ struct dynamixel_device
                      double radians,
                      double speedfrac,
                      double torquefrac);
-    void (*set_id)(dynamixel_device_t* device, uint8_t newid);
+    void (*set_id)(dynamixel_device_t* device, int newid);
     // Set goal in joint mode
     void (*set_joint_goal)(dynamixel_device_t *device,
                            double radians,
@@ -73,48 +70,47 @@ struct dynamixel_device
     // and write if different from desired
     double (*get_min_position_radians)();
     double (*get_max_position_radians)();
-    //bool (*get_rotation_mode)(dynamixel_device_t* device);
-    bool (*read_rotation_mode)(dynamixel_device_t* device);
-    void (*set_rotation_mode)(dynamixel_device_t* device, bool mode);
+    int (*read_rotation_mode)(dynamixel_device_t* device);
+    void (*set_rotation_mode)(dynamixel_device_t* device, int mode);
     void (*set_continuous_goal)(dynamixel_device_t* device,
                                 double speedfrac,
                                 double torquefrac);
     void (*set_continuous_mode)(dynamixel_device_t* device,
-                                bool mode);
+                                int mode);
 
     dynamixel_status_t* (*get_status)(dynamixel_device_t* device);
 };
 
 // === Available general purpose functionality =================
-void set_id(dynamixel_device_t *device, int newid);
-void set_baud(dynamixel_device_t *device int baud);
-int get_firmware_version(dynamixel_device_t *device);
-void ping(dynamixel_device_t *device);
-void set_goal(dynamixel_device_t *device,
+void dynamixel_set_id(dynamixel_device_t *device, int newid);
+void dynamixel_set_baud(dynamixel_device_t *device, int baud);
+int dynamixel_get_firmware_version(dynamixel_device_t *device);
+int dynamixel_ping(dynamixel_device_t *device);
+void dynamixel_set_goal(dynamixel_device_t *device,
               double radians,
               double speedfrac,
               double torquefrac);
-void set_joint_goal_default(dynamixel_device_t *device,
+void dynamixel_set_joint_goal_default(dynamixel_device_t *device,
                             int pmask,
                             double radians,
                             double speedfrac,
                             double torquefrac);
-void set_continuous_goal(dynamixel_device_t *device, double speedfrac, double torquefrac);
-void idle(dynamixel_device_t *device);
-dynamixel_msg_t* read(dynamixel_device_t *device,
+void dynamixel_set_continuous_goal(dynamixel_device_t *device, double speedfrac, double torquefrac);
+void dynamixel_idle(dynamixel_device_t *device);
+dynamixel_msg_t* dynamixel_read(dynamixel_device_t *device,
                       dynamixel_msg_t *params,
-                      bool retry);
-dynamixel_msg_t* read_noretry(dynamixel_device_t *device,
+                      int retry);
+dynamixel_msg_t* dynamixel_read_noretry(dynamixel_device_t *device,
                       dynamixel_msg_t *params,
                       uint8_t num_bytes);
-dynamixel_msg_t* write_to_RAM(dynamixel_device_t *device,
+dynamixel_msg_t* dynamixel_write_to_RAM(dynamixel_device_t *device,
                               dynamixel_msg_t *params,
-                              bool retry);
-dynamixel_msg_t* write_to_RAM_noretry(dynamixel_device_t *device, dynamixel_msg_t *params);
-dynamixel_msg_t* ensure_EEPROM(dynamixel_device_t *device, dynamixel_msg_t *params);
-bool get_rotation_mode(dynamixel_device_t *device);
-bool read_rotation_mode(dynamixel_device_t *device);
-void set_continuous_mode(dynamixel_device_t *device, bool mode);
+                              int retry);
+dynamixel_msg_t* dynamixel_write_to_RAM_noretry(dynamixel_device_t *device, dynamixel_msg_t *params);
+dynamixel_msg_t* dynamixel_ensure_EEPROM(dynamixel_device_t *device, dynamixel_msg_t *params);
+int dynamixel_get_rotation_mode(dynamixel_device_t *device);
+int dynamixel_read_rotation_mode(dynamixel_device_t *device);
+void dynamixel_set_continuous_mode(dynamixel_device_t *device, int mode);
 
 // Create a default dynamixel_device_t with most of the functionality already set
 dynamixel_device_t *dynamixel_device_create_default(uint8_t id);

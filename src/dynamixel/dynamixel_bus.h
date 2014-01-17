@@ -13,40 +13,46 @@
 
 // Forward declarations
 struct dynamixel_device;
-struct dynamixel_device dynamixel_device_t;
+typedef struct dynamixel_device dynamixel_device_t;
 
-typedef struct dynamixel_msg dynamixel_msg_t
+typedef struct dynamixel_msg dynamixel_msg_t;
 struct dynamixel_msg
 {
     int len;
     uint8_t *buf;
 };
 
-typedef struct dynamixel_bus dynamixel_bus_t
+typedef struct dynamixel_bus dynamixel_bus_t;
 struct dynamixel_bus
 {
-    bool retry_enable;  // =true XXX
+    void *impl;
+
+    int retry_enable;
 
     dynamixel_msg_t* (*send_command)(dynamixel_bus_t *bus,
                                      int id,
                                      int instruction,
                                      dynamixel_msg_t *msg,
-                                     bool retry);
+                                     int retry);
 
-    void (*set_retry_enable)(dynamixel_bus_t *bus, bool retry_enable);
-    void (*get_servo_model)(dynamixel_bus_t *bus, uint8_t id);
+    void (*set_retry_enable)(dynamixel_bus_t *bus, int retry_enable);
+    int (*get_servo_model)(dynamixel_bus_t *bus, uint8_t id);
 
     dynamixel_device_t* (*get_servo)(dynamixel_bus_t *bus, uint8_t id);
+
+    // Required for your bus to clean itself up
+    void (*bus_destroy)(dynamixel_bus_t *bus);
 };
 
-// === Message creation and destruction ===========
-dynamixel_msg_t msg_create(int len);
-void msg_destroy(dynamixel_msg_t* msg);
+// === Message creation, destruction, and debugging ===========
+dynamixel_msg_t* dynamixel_msg_create(int len);
+void dynamixel_msg_destroy(dynamixel_msg_t *msg);
+void dynamixel_msg_dump(dynamixel_msg_t *msg);
 
-// === Default bus stuff ==========================
-void set_retry_enable(dynamixel_bus_t *bus, bool retry_enable);
-void get_servo_model(dynamixel_bus_t *bus, uint8_t id);
-dynamixel_device_t* get_servo(dynamixel_bus_t *bus, uint8_t id);
+// === Default bus stuff ======================================
+void dynamixel_bus_set_retry_enable(dynamixel_bus_t *bus, int retry_enable);
+int dynamixel_bus_get_servo_model(dynamixel_bus_t *bus, uint8_t id);
+dynamixel_device_t* dynamixel_bus_get_servo(dynamixel_bus_t *bus, uint8_t id);
 
 dynamixel_bus_t* dynamixel_bus_create_default();
 void dynamixel_bus_destroy_default();

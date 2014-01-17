@@ -245,7 +245,7 @@ static image_u8x3_t *convert_yuyv_to_u8x3(image_source_data_t *frmd)
 
 static image_u32_t *debayer_rggb_to_u32(image_source_data_t *frmd)
 {
-    assert(0);
+//    assert(0);
 
     image_u32_t *im = image_u32_create(frmd->ifmt.width,
                                        frmd->ifmt.height);

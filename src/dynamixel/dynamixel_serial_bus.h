@@ -16,7 +16,7 @@ dynamixel_msg_t* serial_bus_send_command(dynamixel_bus_t *bus,
                                          dynamixel_msg_t *params,
                                          int retry);
 
-dynamixel_bus_t* serial_bus_create(char *device, int baud);
+dynamixel_bus_t* serial_bus_create(const char *device, int baud);
 void serial_bus_destroy(dynamixel_bus_t *bus);
 
 #endif

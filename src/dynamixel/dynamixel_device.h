@@ -24,6 +24,8 @@ struct dynamixel_status
 
     int continuous;
     int error_flags;
+
+    void (*to_string)(dynamixel_status_t *status, char *buf);
 };
 
 typedef struct dynamixel_device dynamixel_device_t;
@@ -35,6 +37,8 @@ struct dynamixel_device
     int id;
     int rotation_mode;
 
+    void (*destroy)(dynamixel_device_t *device);
+
     // === General functionality ===============================
     dynamixel_msg_t* (*ensure_EEPROM)(dynamixel_device_t* device, dynamixel_msg_t* params);
     int (*is_address_EEPROM)(int addr);
@@ -43,6 +47,7 @@ struct dynamixel_device
     void (*idle)(dynamixel_device_t* device);
     // Returns >0 if device is on the bus
     int (*ping)(dynamixel_device_t* device);
+    const char* (*get_name)(dynamixel_device_t* device);
 
     // Read/write data from/to specified address.
     dynamixel_msg_t* (*read)(dynamixel_device_t* device, dynamixel_msg_t* params, int retry);
@@ -113,7 +118,11 @@ int dynamixel_read_rotation_mode(dynamixel_device_t *device);
 void dynamixel_set_continuous_mode(dynamixel_device_t *device, int mode);
 
 // Create a default dynamixel_device_t with most of the functionality already set
-dynamixel_device_t *dynamixel_device_create_default(uint8_t id);
-void dynamixel_device_destroy_default();
+dynamixel_device_t *dynamixel_device_create(uint8_t id);
+void dynamixel_device_destroy();
+
+// Status creatoin
+dynamixel_status_t* dynamixel_status_create();
+void dynamixel_status_destroy(dynamixel_status_t *status);
 
 #endif

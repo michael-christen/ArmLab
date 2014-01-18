@@ -8,6 +8,7 @@
 
 #define dmax(A, B) (A > B ? A : B)
 #define dmin(A, B) (A < B ? A : B)
+#define dabs(A) (A < 0 ? -A : A)
 
 void dynamixel_set_id(dynamixel_device_t *device, int newid)
 {
@@ -119,8 +120,10 @@ void dynamixel_set_joint_goal_default(dynamixel_device_t *device,
 
     // Ensure proper ranges
     radians = mod2pi(radians);
-    speedfrac = dmax(0, dmin(1, abs(speedfrac)));
-    torquefrac = dmax(0, dmin(1, torquefrac));
+    speedfrac = dmax(0.0, dmin(1.0, dabs(speedfrac)));
+    torquefrac = dmax(0.0, dmin(1.0, torquefrac));
+
+    printf("%f %f %f\n", radians, speedfrac, torquefrac);
 
     double min = device->get_min_position_radians(device);
     double max = device->get_max_position_radians(device);
@@ -276,7 +279,7 @@ dynamixel_msg_t* dynamixel_write_to_RAM_noretry(dynamixel_device_t *device,
 dynamixel_msg_t* dynamixel_ensure_EEPROM(dynamixel_device_t *device, dynamixel_msg_t *params)
 {
     if (!device->is_address_EEPROM(0xff & params->buf[0])) {
-        printf("WRN: Write faield because EEPROM address given is in RAM area.\n");
+        printf("WRN: Write failed because EEPROM address given is in RAM area.\n");
         return NULL;
     }
 
@@ -288,7 +291,7 @@ dynamixel_msg_t* dynamixel_ensure_EEPROM(dynamixel_device_t *device, dynamixel_m
 
     dynamixel_msg_destroy(msg);
 
-    if (resp != NULL || resp->len != (num_bytes+2) || resp->buf[0] != 0) {
+    if (resp == NULL || resp->len != (num_bytes+2) || resp->buf[0] != 0) {
         printf("WRN: Invalid EEPROM read: ");
         dynamixel_msg_dump(resp);
         return resp;
@@ -357,11 +360,13 @@ void dynamixel_set_continuous_mode(dynamixel_device_t *device, int mode)
 }
 
 // === Create/Destroy default device ========================
-dynamixel_device_t *dynamixel_device_create_default(uint8_t id)
+dynamixel_device_t *dynamixel_device_create(uint8_t id)
 {
     dynamixel_device_t *device = malloc(sizeof(dynamixel_device_t));
     device->id = id;
     device->rotation_mode = 0;
+
+    device->destroy = dynamixel_device_destroy;
 
     // Set functions that we have
     device->set_id = dynamixel_set_id;
@@ -395,6 +400,33 @@ dynamixel_device_t *dynamixel_device_create_default(uint8_t id)
 
 void dynamixel_device_destroy(dynamixel_device_t *device)
 {
-    device->bus->bus_destroy(device->bus);
+    //device->bus->bus_destroy(device->bus);
     free(device);
+}
+
+// Make sure that buf is large enough
+void dynamixel_status_to_string(dynamixel_status_t *status, char *buf)
+{
+    sprintf(buf,
+            "pos=%6.3f, speed=%6.3f, load=%6.3f, volts=%4.1f, temp=%4.1f, mode=%s, err=%08x",
+            status->position_radians,
+            status->speed,
+            status->load,
+            status->voltage,
+            status->temperature,
+            status->continuous ? "wheel" : "joint",
+            status->error_flags);
+}
+
+dynamixel_status_t* dynamixel_status_create()
+{
+    dynamixel_status_t *status = malloc(sizeof(dynamixel_status_t));
+    status->to_string = dynamixel_status_to_string;
+
+    return status;
+}
+
+void dynamixel_status_destroy(dynamixel_status_t *status)
+{
+    free(status);
 }

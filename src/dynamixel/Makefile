@@ -9,12 +9,15 @@ DYNAMIXEL_OBJS = serial.o ioutils.o dynamixel_bus.o dynamixel_serial_bus.o \
 
 LIBDYNAMIXEL=$(LIB_PATH)/libdynamixel.a
 
-all: $(LIBDYNAMIXEL)
+all: $(LIBDYNAMIXEL) test
 
 
 $(LIBDYNAMIXEL): $(DYNAMIXEL_OBJS)
 	@echo "\t$@"
 	@ar rc $@ $(DYNAMIXEL_OBJS)
+
+test: $(LIBDYNAMIXEL) dynamixel_test.o
+	@gcc -o dynamixel_test dynamixel_test.o $(DYNAMIXEL_OBJS) $(LDFLAGS)
 
 clean:
 	@rm -f *.o *~ *.a

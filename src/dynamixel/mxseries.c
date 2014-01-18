@@ -53,7 +53,7 @@ dynamixel_status_t* mxseries_get_status(dynamixel_device_t *device)
     if (resp == NULL)
         return NULL;
 
-    dynamixel_status_t *stat = malloc(sizeof(dynamixel_status_t));
+    dynamixel_status_t *stat = dynamixel_status_create();
     stat->position_radians = ((resp->buf[1] & 0xff) +
                               ((resp->buf[2] & 0xf) << 8)) *
                              2 * M_PI / 0xfff - M_PI;
@@ -93,11 +93,17 @@ void mxseries_set_rotation_mode(dynamixel_device_t *device, int mode)
         dynamixel_msg_destroy(resp);
 }
 
+const char* mxseries_get_name(dynamixel_device_t *device)
+{
+    // XXX Later, give version lookup
+    return "MX-Series";
+}
+
 // === MX series device creation ===================
 dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
                                     uint8_t id)
 {
-    dynamixel_device_t* device = dynamixel_device_create_default(id);
+    dynamixel_device_t* device = dynamixel_device_create(id);
 
     // Bus stuff
     device->bus = bus;
@@ -108,6 +114,7 @@ dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
     device->set_joint_goal = mxseries_set_joint_goal;
     device->get_status = mxseries_get_status;
     device->set_rotation_mode = mxseries_set_rotation_mode;
+    device->get_name = mxseries_get_name;
 
     // Return delay time
     uint8_t delay = 0x02;   // each unit = 2 usec

@@ -79,7 +79,7 @@ dynamixel_device_t* dynamixel_bus_get_servo(dynamixel_bus_t *bus, uint8_t id)
     return NULL;
 }
 
-dynamixel_bus_t* dynamixel_bus_create_default()
+dynamixel_bus_t* dynamixel_bus_create()
 {
     dynamixel_bus_t *bus = malloc(sizeof(dynamixel_bus_t));
     bus->retry_enable = 1;
@@ -95,7 +95,7 @@ dynamixel_bus_t* dynamixel_bus_create_default()
     return bus;
 }
 
-void dynamixel_bus_destroy_default(dynamixel_bus_t *bus)
+void dynamixel_bus_destroy(dynamixel_bus_t *bus)
 {
     free(bus);
 }

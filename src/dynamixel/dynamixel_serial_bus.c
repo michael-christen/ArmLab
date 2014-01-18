@@ -9,6 +9,7 @@
 #include "ioutils.h"
 
 #define TIMEOUT_MS 50
+#define VERBOSE 0
 
 // === Bus specific implementation ===================
 // Send an instruction with the specified parameters. The error code,
@@ -42,8 +43,10 @@ static dynamixel_msg_t* send_command_raw(dynamixel_bus_t *bus,
     cmd[5+parameterlen] = (uint8_t)((checksum ^ 0xff) & 0xff);
 
     int res = write(impl->fd, cmd, 6+parameterlen);
+    if (VERBOSE) {
+        // XXX Dump cmd...which isn't a msg
+    }
     free(cmd);
-    // XXX Verbose print for debugging
 
     // Read response. The header is really 5 bytes, but we put the
     // error code in the body so that the caller knows what went wrong
@@ -57,7 +60,10 @@ static dynamixel_msg_t* send_command_raw(dynamixel_bus_t *bus,
                                  4 - header_have,
                                  TIMEOUT_MS);
 
-        // XXX Verbose out
+        if (VERBOSE) {
+            printf("READ:  res = %d : ", res);
+            dynamixel_msg_dump(header);
+        }
 
         if (res < 1)
             return NULL;
@@ -93,12 +99,16 @@ static dynamixel_msg_t* send_command_raw(dynamixel_bus_t *bus,
                              body->len,
                              TIMEOUT_MS);
 
-    // XXX Verbose print
+    if (VERBOSE) {
+        printf("READ:  res = %d : ", res);
+        dynamixel_msg_dump(body);
+    }
+
     if (1) {
         int checksum = 0;
         for (int i = 2; i < header->len; i++)
             checksum += (header->buf[i] & 0xff);
-        for (int i = 0; i < body->len; i++)
+        for (int i = 0; i < body->len-1; i++)
             checksum += (body->buf[i] & 0xff);
         checksum = (checksum & 0xff) ^ 0xff;
         if ((body->buf[body->len - 1] & 0xff) != checksum) {
@@ -126,7 +136,9 @@ dynamixel_msg_t* serial_bus_send_command(dynamixel_bus_t *bus,
                                                  params);
 
         if (resp == NULL || resp->len < 1) {
-            // XXX Verbose message?
+            if (VERBOSE) {
+                printf("serial_bus id=%d error: short response.\n", id);
+            }
             continue;
         }
 
@@ -149,9 +161,9 @@ dynamixel_msg_t* serial_bus_send_command(dynamixel_bus_t *bus,
 }
 
 // === Bus creation and destruction ==================
-dynamixel_bus_t* serial_bus_create(char *device, int baud)
+dynamixel_bus_t* serial_bus_create(const char *device, int baud)
 {
-    dynamixel_bus_t *bus = dynamixel_bus_create_default();
+    dynamixel_bus_t *bus = dynamixel_bus_create();
 
     // Implementation stuff
     dynamixel_serial_bus_impl_t *impl = malloc(sizeof(dynamixel_serial_bus_impl_t));
@@ -169,7 +181,7 @@ dynamixel_bus_t* serial_bus_create(char *device, int baud)
 
     // Fill in functions
     bus->send_command = serial_bus_send_command;
-    bus->bus_destroy = serial_bus_destroy;
+    bus->destroy = serial_bus_destroy;
 
     return bus;
 }
@@ -177,5 +189,5 @@ dynamixel_bus_t* serial_bus_create(char *device, int baud)
 void serial_bus_destroy(dynamixel_bus_t *bus)
 {
     free(bus->impl);
-    dynamixel_bus_destroy_default(bus);
+    dynamixel_bus_destroy(bus);
 }

@@ -41,7 +41,7 @@ struct dynamixel_bus
     dynamixel_device_t* (*get_servo)(dynamixel_bus_t *bus, uint8_t id);
 
     // Required for your bus to clean itself up
-    void (*bus_destroy)(dynamixel_bus_t *bus);
+    void (*destroy)(dynamixel_bus_t *bus);
 };
 
 // === Message creation, destruction, and debugging ===========
@@ -54,7 +54,7 @@ void dynamixel_bus_set_retry_enable(dynamixel_bus_t *bus, int retry_enable);
 int dynamixel_bus_get_servo_model(dynamixel_bus_t *bus, uint8_t id);
 dynamixel_device_t* dynamixel_bus_get_servo(dynamixel_bus_t *bus, uint8_t id);
 
-dynamixel_bus_t* dynamixel_bus_create_default();
-void dynamixel_bus_destroy_default();
+dynamixel_bus_t* dynamixel_bus_create();
+void dynamixel_bus_destroy();
 
 #endif

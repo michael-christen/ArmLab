@@ -5,6 +5,7 @@ SUBDIRS = common imagesource vx vx/gtk dynamixel apps
 MAKEFLAGS += --no-print-directory
 
 all:
+	@echo [lcmtypes] ; $(MAKE) -f Makefile.lcmgen all || exit 2;
 	@for dir in $(SUBDIRS) ; do \
 	echo [$$dir] ; $(MAKE) -C $$dir all || exit 2; done
 

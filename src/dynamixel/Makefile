@@ -1,15 +1,14 @@
 include ../common.mk
 
 CFLAGS = $(CFLAGS_STD) $(CFLAGS_COMMON) $(CFLAGS_GLIB) $(CFLAGS_GTK) -msse2 -fPIC -O4
-LDFLAGS = $(LDFLAGS_STD) $(LDFLAGS_COMMON) $(LDFLAGS_GLIB) $(LDFLAGS_GTK)
+LDFLAGS = $(LDFLAGS_STD) $(LDFLAGS_COMMON) $(LDFLAGS_GLIB) $(LDFLAGS_GTK) -llcm
 
 DYNAMIXEL_OBJS = serial.o ioutils.o dynamixel_bus.o dynamixel_serial_bus.o \
 				 dynamixel_device.o axseries.o mxseries.o
 
-
 LIBDYNAMIXEL=$(LIB_PATH)/libdynamixel.a
 
-all: $(LIBDYNAMIXEL) test
+all: $(LIBDYNAMIXEL) test driver
 
 
 $(LIBDYNAMIXEL): $(DYNAMIXEL_OBJS)
@@ -18,6 +17,10 @@ $(LIBDYNAMIXEL): $(DYNAMIXEL_OBJS)
 
 test: $(LIBDYNAMIXEL) dynamixel_test.o
 	@gcc -o dynamixel_test dynamixel_test.o $(DYNAMIXEL_OBJS) $(LDFLAGS)
+
+driver: $(LIBDYNAMIXEL) arm_driver.c
+	@gcc -o arm_driver arm_driver.c $(DYNAMIXEL_OBJS) $(LDFLAGS)
+	@cp arm_driver ../../bin/
 
 clean:
 	@rm -f *.o *~ *.a

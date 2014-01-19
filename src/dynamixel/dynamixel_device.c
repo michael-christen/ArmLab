@@ -405,7 +405,7 @@ void dynamixel_device_destroy(dynamixel_device_t *device)
 }
 
 // Make sure that buf is large enough
-void dynamixel_status_to_string(dynamixel_status_t *status, char *buf)
+void dynamixel_device_status_to_string(dynamixel_device_status_t *status, char *buf)
 {
     sprintf(buf,
             "pos=%6.3f, speed=%6.3f, load=%6.3f, volts=%4.1f, temp=%4.1f, mode=%s, err=%08x",
@@ -418,15 +418,15 @@ void dynamixel_status_to_string(dynamixel_status_t *status, char *buf)
             status->error_flags);
 }
 
-dynamixel_status_t* dynamixel_status_create()
+dynamixel_device_status_t* dynamixel_device_status_create()
 {
-    dynamixel_status_t *status = malloc(sizeof(dynamixel_status_t));
-    status->to_string = dynamixel_status_to_string;
+    dynamixel_device_status_t *status = malloc(sizeof(dynamixel_device_status_t));
+    status->to_string = dynamixel_device_status_to_string;
 
     return status;
 }
 
-void dynamixel_status_destroy(dynamixel_status_t *status)
+void dynamixel_device_status_destroy(dynamixel_device_status_t *status)
 {
     free(status);
 }

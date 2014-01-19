@@ -121,7 +121,7 @@ int main(int argc, char **argv)
                 if (servo == NULL)
                     continue;
 
-                dynamixel_status_t *status = servo->get_status(servo);
+                dynamixel_device_status_t *status = servo->get_status(servo);
                 char buf[255];
                 status->to_string(status, buf);
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
                        servo->get_name(servo),
                        servo->get_firmware_version(servo),
                        buf);
-                dynamixel_status_destroy(status);
+                dynamixel_device_status_destroy(status);
 
                 // Read from stdin
                 char c[2];
@@ -171,6 +171,7 @@ int main(int argc, char **argv)
     }*/
 
     bus->destroy(bus);
+    getopt_destroy(gopt);
 
     return 0;
 }

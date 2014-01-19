@@ -37,7 +37,7 @@ void mxseries_set_joint_goal(dynamixel_device_t *device,
                                      torquefrac);
 }
 
-dynamixel_status_t* mxseries_get_status(dynamixel_device_t *device)
+dynamixel_device_status_t* mxseries_get_status(dynamixel_device_t *device)
 {
     dynamixel_msg_t *msg = dynamixel_msg_create(2);
     msg->buf[0] = 0x24;
@@ -53,7 +53,7 @@ dynamixel_status_t* mxseries_get_status(dynamixel_device_t *device)
     if (resp == NULL)
         return NULL;
 
-    dynamixel_status_t *stat = dynamixel_status_create();
+    dynamixel_device_status_t *stat = dynamixel_device_status_create();
     stat->position_radians = ((resp->buf[1] & 0xff) +
                               ((resp->buf[2] & 0xf) << 8)) *
                              2 * M_PI / 0xfff - M_PI;

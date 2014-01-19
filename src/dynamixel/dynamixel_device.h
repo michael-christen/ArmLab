@@ -13,8 +13,8 @@
 #define ERROR_ANGLE_LIMIT (1 << 1)
 #define ERROR_VOLTAGE     (1 << 0)
 
-typedef struct dynamixel_status dynamixel_status_t;
-struct dynamixel_status
+typedef struct dynamixel_device_status dynamixel_device_status_t;
+struct dynamixel_device_status
 {
     double position_radians;
     double speed;
@@ -23,9 +23,9 @@ struct dynamixel_status
     double temperature;
 
     int continuous;
-    int error_flags;
+    int32_t error_flags;
 
-    void (*to_string)(dynamixel_status_t *status, char *buf);
+    void (*to_string)(dynamixel_device_status_t *status, char *buf);
 };
 
 typedef struct dynamixel_device dynamixel_device_t;
@@ -83,7 +83,7 @@ struct dynamixel_device
     void (*set_continuous_mode)(dynamixel_device_t* device,
                                 int mode);
 
-    dynamixel_status_t* (*get_status)(dynamixel_device_t* device);
+    dynamixel_device_status_t* (*get_status)(dynamixel_device_t* device);
 };
 
 // === Available general purpose functionality =================
@@ -122,7 +122,7 @@ dynamixel_device_t *dynamixel_device_create(uint8_t id);
 void dynamixel_device_destroy();
 
 // Status creatoin
-dynamixel_status_t* dynamixel_status_create();
-void dynamixel_status_destroy(dynamixel_status_t *status);
+dynamixel_device_status_t* dynamixel_device_status_create();
+void dynamixel_device_status_destroy(dynamixel_device_status_t *status);
 
 #endif

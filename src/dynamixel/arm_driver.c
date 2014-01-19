@@ -5,18 +5,20 @@
 #include <unistd.h>
 #include <math.h>
 #include <sys/select.h>
+#include <sys/time.h>
 #include <pthread.h>
 
 #include <lcm/lcm.h>
-#include "lcmtypes/dynamixel_command_list_t.h"
-#include "lcmtypes/dynamixel_command_t.h"
-#include "lcmtypes/dynamixel_status_list_t.h"
-#include "lcmtypes/dynamixel_status_t.h"
+#include "../lcmtypes/dynamixel_command_list_t.h"
+#include "../lcmtypes/dynamixel_command_t.h"
+#include "../lcmtypes/dynamixel_status_list_t.h"
+#include "../lcmtypes/dynamixel_status_t.h"
 
 #include "dynamixel_device.h"
 #include "dynamixel_serial_bus.h"
 
-#include "common/getopt.h"
+#include "../common/getopt.h"
+#include "../common/math_util.h"
 
 #define NUM_SERVOS 6
 
@@ -32,8 +34,8 @@ struct arm_state
     dynamixel_device_t **servos;
 
     // LCM
-    lcm_t lcm;
-    dynamixel_command_list_t cmds;
+    lcm_t *lcm;
+    const dynamixel_command_list_t *cmds;
 
     // Threading
     pthread_mutex_t status_mutex;
@@ -60,6 +62,8 @@ static arm_state_t* arm_state_create(const char *busname, const int baud)
             exit(-1);
         }
     }
+
+    return arm_state;
 }
 
 static void arm_state_destroy(arm_state_t* arm_state)
@@ -67,7 +71,7 @@ static void arm_state_destroy(arm_state_t* arm_state)
     for (int i = 0; i < NUM_SERVOS; i++) {
         arm_state->servos[i]->destroy(arm_state->servos[i]);
     }
-    arm_state->bus->destroy(bus);
+    arm_state->bus->destroy(arm_state->bus);
     lcm_destroy(arm_state->lcm);
     free(arm_state);
 }
@@ -100,14 +104,14 @@ void* status_loop(void *args)
             stats.statuses[id].position_radians = stat->position_radians;
             stats.statuses[id].speed = stat->speed;
             stats.statuses[id].load = stat->load;
-            stats.statuses[id].voltage = voltage;
-            stats.statuses[id].temperature = temperature;
+            stats.statuses[id].voltage = stat->voltage;
+            stats.statuses[id].temperature = stat->temperature;
 
             dynamixel_device_status_destroy(stat);
         }
 
         // Publish
-        dynamixel_status_list_t_publish(arm_state->lcm, "ARM_STATUS");
+        dynamixel_status_list_t_publish(arm_state->lcm, "ARM_STATUS", &stats);
 
         // Attempt to send messages at a fixed rate
         int64_t max_delay = (1000000 / hz);
@@ -156,24 +160,24 @@ void* driver_loop(void *args)
         FD_SET(lcm_fd, &fds);
 
         // Handle message if appropriate
-        struct timeval timeout {
+        struct timeval timeout = {
             0,              // Seconds
             1000000/hz      // Microseconds
         };
         int status = select(lcm_fd + 1, &fds, 0, 0, &timeout);
 
         if (0 == status) {
-            // No messages
+            continue;
         } else {
             // LCM has events ready to be processed
-            lcm_handle(lcm);
+            lcm_handle(arm_state->lcm);
         }
 
         // Get commands from somewhere
-        dynamixel_command_list_t *cmds = arm_state->cmds;
+        const dynamixel_command_list_t *cmds = arm_state->cmds;
 
         for (int id = 0; id < cmds->len; id++) {
-            dymamixel_command_t cmd = cmds->commands[id];
+            dynamixel_command_t cmd = cmds->commands[id];
             dynamixel_command_t last_cmd = last_cmds.commands[id];
 
             int update = ((cmd.utime - last_cmd.utime) > 1000000 ||
@@ -183,12 +187,15 @@ void* driver_loop(void *args)
 
             if (update) {
                 arm_state->servos[id]->set_goal(arm_state->servos[id],
+                                                cmd.position_radians,
                                                 dmax(0.0, dmin(1.0, cmd.speed)),
                                                 dmax(0.0, dmin(1.0, cmd.max_torque)));
                 last_cmds.commands[id] = cmd;
             }
         }
     }
+
+    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -213,7 +220,7 @@ int main(int argc, char **argv)
     dynamixel_command_list_t_subscribe(arm_state->lcm,
                                        "ARM_COMMAND",
                                        command_handler,
-                                       arm->state);
+                                       arm_state);
 
     pthread_create(&arm_state->status_thread, NULL, status_loop, arm_state);
     pthread_create(&arm_state->driver_thread, NULL, driver_loop, arm_state);

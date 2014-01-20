@@ -9,16 +9,15 @@
 #include <pthread.h>
 
 #include <lcm/lcm.h>
-#include "../lcmtypes/dynamixel_command_list_t.h"
-#include "../lcmtypes/dynamixel_command_t.h"
-#include "../lcmtypes/dynamixel_status_list_t.h"
-#include "../lcmtypes/dynamixel_status_t.h"
+#include "lcmtypes/dynamixel_command_list_t.h"
+#include "lcmtypes/dynamixel_command_t.h"
+#include "lcmtypes/dynamixel_status_list_t.h"
+#include "lcmtypes/dynamixel_status_t.h"
 
-#include "dynamixel_device.h"
-#include "dynamixel_serial_bus.h"
-
-#include "../common/getopt.h"
-#include "../common/math_util.h"
+#include "common/dynamixel_device.h"
+#include "common/dynamixel_serial_bus.h"
+#include "common/getopt.h"
+#include "common/math_util.h"
 
 #define NUM_SERVOS 6
 

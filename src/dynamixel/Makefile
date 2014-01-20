@@ -31,3 +31,4 @@ example: $(LIBDYNAMIXEL) arm_example.c
 
 clean:
 	@rm -f *.o *~ *.a
+	@rm -f dynamixel_test arm_driver arm_example

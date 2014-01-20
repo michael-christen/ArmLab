@@ -3,9 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "dynamixel_serial_bus.h"
-#include "dynamixel_device.h"
-
+#include "common/dynamixel_serial_bus.h"
+#include "common/dynamixel_device.h"
 #include "common/getopt.h"
 #include "common/math_util.h"
 

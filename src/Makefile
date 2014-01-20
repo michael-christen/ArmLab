@@ -1,6 +1,6 @@
 # Only add your directories to this folder if you are 100% sure that
 # it will always compile without warnings.
-SUBDIRS = common imagesource vx vx/gtk dynamixel apps
+SUBDIRS = lcmtypes common imagesource vx vx/gtk apps arm
 
 MAKEFLAGS += --no-print-directory
 

@@ -62,10 +62,10 @@ image_u8_t *image_u8_create_from_pnm(const char *path)
             // Gray conversion for RGB is gray = (r + g + g + b)/4
             for (int y = 0; y < im->height; y++) {
                 for (int x = 0; x < im->width; x++) {
-                    uint8_t gray = (pnm->buf[y*im->width*3 + x+0] +    // r
-                                    pnm->buf[y*im->width*3 + x+1] +    // g
-                                    pnm->buf[y*im->width*3 + x+1] +    // g
-                                    pnm->buf[y*im->width*3 + x+2])     // b
+                    uint8_t gray = (pnm->buf[y*im->width*3 + 3*x+0] +    // r
+                                    pnm->buf[y*im->width*3 + 3*x+1] +    // g
+                                    pnm->buf[y*im->width*3 + 3*x+1] +    // g
+                                    pnm->buf[y*im->width*3 + 3*x+2])     // b
                         / 4;
 
                     im->buf[y*im->stride + x] = gray;

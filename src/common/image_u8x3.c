@@ -23,8 +23,8 @@ image_u8x3_t *image_u8x3_create_alignment(int width, int height, int alignment)
     im->height = height;
     im->stride = width*3;
 
-    if ((im->stride % DEFAULT_ALIGNMENT) != 0)
-        im->stride += DEFAULT_ALIGNMENT - (im->stride % DEFAULT_ALIGNMENT);
+    if ((im->stride % alignment) != 0)
+        im->stride += alignment - (im->stride % alignment);
 
     im->buf = (uint8_t*) calloc(1, im->height*im->stride);
 

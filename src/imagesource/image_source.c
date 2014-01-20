@@ -7,10 +7,23 @@
 #include "image_source.h"
 #include "url_parser.h"
 
-#include "common/zarray.h"
 #include "common/string_util.h"
 
 void image_source_print_features(image_source_t *isrc);
+
+image_source_t *image_source_v4l2_open(url_parser_t *urlp);
+image_source_t *image_source_dc1394_open(url_parser_t *urlp);
+image_source_t *image_source_islog_open(url_parser_t *urlp);
+image_source_t *image_source_pgusb_open(url_parser_t *urlp);
+image_source_t *image_source_filedir_open(url_parser_t *urlp);
+image_source_t *image_source_tcp_open(url_parser_t *urlp);
+image_source_t *image_source_null_open(url_parser_t *urlp);
+
+void image_source_enumerate_v4l2(zarray_t *urls);
+void image_source_enumerate_dc1394(zarray_t *urls);
+void image_source_enumerate_pgusb(zarray_t *urls);
+void image_source_enumerate_null(zarray_t *urls);
+
 
 image_source_t *image_source_open(const char *url)
 {
@@ -22,10 +35,9 @@ image_source_t *image_source_open(const char *url)
         return NULL;
 
     const char *protocol = url_parser_get_protocol(urlp);
-    const char *location = url_parser_get_location(urlp);
 
     if (!strcmp(protocol, "v4l2://")) {
-        isrc = image_source_v4l2_open(location);
+        isrc = image_source_v4l2_open(urlp);
     } else if (!strcmp(protocol, "dc1394://")) {
         isrc = image_source_dc1394_open(urlp);
     } else if (!strcmp(protocol, "islog://")) {
@@ -38,6 +50,8 @@ image_source_t *image_source_open(const char *url)
         isrc = image_source_filedir_open(urlp);
     }  else if (!strcmp(protocol, "tcp://")) {
         isrc = image_source_tcp_open(urlp);
+    }  else if (!strcmp(protocol, "null://")) {
+        isrc = image_source_null_open(urlp);
     }
 
     // handle parameters
@@ -111,25 +125,30 @@ cleanup:
     return isrc;
 }
 
-char** image_source_enumerate()
+zarray_t *image_source_enumerate()
 {
-    char **urls = calloc(1, sizeof(char*));
+    zarray_t *urls = zarray_create(sizeof(char*));
 
-    urls = image_source_enumerate_v4l2(urls);
-    urls = image_source_enumerate_pgusb(urls);
-    urls = image_source_enumerate_dc1394(urls);
+    image_source_enumerate_v4l2(urls);
+    image_source_enumerate_pgusb(urls);
+    image_source_enumerate_dc1394(urls);
+    image_source_enumerate_null(urls);
 
     return urls;
 }
 
-void image_source_enumerate_free(char **urls)
+void image_source_enumerate_free(zarray_t *urls)
 {
     if (urls == NULL)
         return;
 
-    for (int i = 0; urls[i] != NULL; i++)
-        free(urls[i]);
-    free(urls);
+    for (int i = 0; zarray_size(urls); i++) {
+        char *url;
+        zarray_get(urls, i, &url);
+        free(url);
+    }
+
+    zarray_destroy(urls);
 }
 
 void image_source_print_features(image_source_t *isrc)

@@ -137,6 +137,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_tcp_t *impl = (impl_tcp_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     pthread_mutex_lock(&impl->mutex);
     while (impl->data == NULL)
         pthread_cond_wait(&impl->cond, &impl->mutex);
@@ -253,8 +255,10 @@ image_source_t *image_source_tcp_open(url_parser_t *urlp)
     isrc->impl_type = IMPL_TYPE;
     isrc->impl = impl;
 
-    impl->hostname = strdup(url_parser_get_location(urlp));
-    impl->port = 7701;
+    impl->hostname = strdup(url_parser_get_host(urlp));
+    impl->port = url_parser_get_port(urlp);
+    if (impl->port < 0)
+        impl->port = 7701;
 
     strcpy(impl->format, "NONE");
 

@@ -24,11 +24,9 @@ struct timestamp_sync_state {
 extern "C" {
 #endif
 
-int64_t timestamp_now();
-int64_t timestamp_seconds(int64_t v);
-int64_t timestamp_useconds(int64_t v);
-void timestamp_to_timeval(int64_t v, struct timeval *tv);
-void timestamp_to_timespec(int64_t v, struct timespec *ts);
+int64_t utime_now();
+void utime_to_timeval(int64_t v, struct timeval *tv);
+void utime_to_timespec(int64_t v, struct timespec *ts);
 
 /** Create a new time synchronizer.
     @param dev_ticks_per_second  The nominal rate at which the device time increments

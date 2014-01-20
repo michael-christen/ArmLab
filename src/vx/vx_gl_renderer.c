@@ -1094,7 +1094,7 @@ void vx_gl_renderer_draw_frame(vx_gl_renderer_t * state, int width, int height)
 {
     static int first = 1;
     if (first) {
-        printf("CDBG: First render() call\n");
+        printf("CDBG: First render() call %d layers\n", zhash_size(state->layer_map));
         first = 0;
     }
 
@@ -1150,12 +1150,6 @@ void vx_gl_renderer_draw_frame(vx_gl_renderer_t * state, int width, int height)
     for (int i = 0; i < zarray_size(layers); i++) {
         vx_layer_info_t * layer = NULL;
         zarray_get(layers, i, &layer);
-        vx_world_info_t * world = NULL;
-        zhash_get(state->world_map, &layer->world_id, &world);
-        if (world == NULL){ // haven't uploaded world yet?
-            if (verbose) printf("WRN: world %d not populated yet!\n", layer->world_id);
-            continue;
-        }
 
         glScissor (layer->viewport[0], layer->viewport[1], layer->viewport[2], layer->viewport[3]);
         glViewport(layer->viewport[0], layer->viewport[1], layer->viewport[2], layer->viewport[3]);
@@ -1178,6 +1172,13 @@ void vx_gl_renderer_draw_frame(vx_gl_renderer_t * state, int width, int height)
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glEnable(GL_BLEND); // needed for colors alpha transparency
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        vx_world_info_t * world = NULL;
+        zhash_get(state->world_map, &layer->world_id, &world);
+        if (world == NULL){ // haven't uploaded world yet?
+            if (verbose) printf("WRN: world %d not populated yet!\n", layer->world_id);
+            continue;
+        }
 
         zarray_t * buffers = zhash_values(world->buffer_map);
         zarray_sort(buffers, buffer_compare);

@@ -6,30 +6,30 @@
 
 #include "timestamp.h"
 
-int64_t timestamp_now()
+int64_t utime_now()
 {
     struct timeval tv;
     gettimeofday (&tv, NULL);
     return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-int64_t timestamp_seconds(int64_t v)
+static int64_t timestamp_seconds(int64_t v)
 {
     return v/1000000;
 }
 
-int64_t timestamp_useconds(int64_t v)
+static int64_t timestamp_useconds(int64_t v)
 {
     return v%1000000;
 }
 
-void timestamp_to_timeval(int64_t v, struct timeval *tv)
+void utime_to_timeval(int64_t v, struct timeval *tv)
 {
     tv->tv_sec  = timestamp_seconds(v);
     tv->tv_usec = timestamp_useconds(v);
 }
 
-void timestamp_to_timespec(int64_t v, struct timespec *ts)
+void utime_to_timespec(int64_t v, struct timespec *ts)
 {
     ts->tv_sec  = timestamp_seconds(v);
     ts->tv_nsec = timestamp_useconds(v)*1000;

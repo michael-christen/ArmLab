@@ -120,8 +120,9 @@ gtku_image_pane_expose(GtkWidget *widget, GdkEventExpose *event )
                                             priv->height,
                                             -1);
 
+        // draw gray into the map if no data is present yet
         gdk_draw_rectangle (newMap,
-                            widget->style->black_gc,
+                            widget->style->bg_gc[GTK_STATE_NORMAL],
                             TRUE,
                             0, 0,
                             widget->allocation.width,
@@ -134,6 +135,7 @@ gtku_image_pane_expose(GtkWidget *widget, GdkEventExpose *event )
         }
     }
 
+    // as soon as a pixBuf is available, draw it.
     if (priv->pixBuf != NULL) {
         gdk_draw_pixbuf(priv->pixMap,
                         NULL, // graphics context, for clipping?
@@ -144,6 +146,7 @@ gtku_image_pane_expose(GtkWidget *widget, GdkEventExpose *event )
                         GDK_RGB_DITHER_NONE, 0,0);
     }
 
+    // Finally, render the map onto the window
     gdk_draw_drawable(GDK_DRAWABLE(gtk_widget_get_window(widget)),
                       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
                       priv->pixMap,

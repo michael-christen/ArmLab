@@ -80,16 +80,9 @@ void* render_loop(void *data)
                 image_u32_t *im = image_convert_u32(frmd);
                 if (im != NULL) {
 
-                    vx_resc_t *buf = vx_resc_copyui(im->buf,
-                                                    im->stride*im->height);
-
-                    vx_object_t *vim = vxo_image_texflags(buf,
-                                                          im->width,
-                                                          im->height,
-                                                          GL_RGBA,
+                    vx_object_t *vim = vxo_image_from_u32(im,
                                                           VXO_IMAGE_FLIPY,
-                                                          VX_TEX_MIN_FILTER |
-                                                          VX_TEX_MAG_FILTER);
+                                                          VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
 
                     vx_buffer_add_back(vx_world_get_buffer(state->world, "image"),
                                        vxo_chain(vxo_mat_translate3(-im->width/2,-im->height/2,0),
@@ -186,17 +179,20 @@ int main(int argc, char **argv)
         // No URL specified. Show all available and then
         // use the first
 
-        char **urls = image_source_enumerate();
+        zarray_t *urls = image_source_enumerate();
         printf("Cameras:\n");
-        for (int i = 0; urls[i] != NULL; i++)
-            printf("  %3d: %s\n", i, urls[i]);
+        for (int i = 0; i < zarray_size(urls); i++) {
+            char *url;
+            zarray_get(urls, i, &url);
+            printf("  %3d: %s\n", i, url);
+        }
 
-        if (urls[0]==NULL) {
+        if (zarray_size(urls) == 0) {
             printf("Found no cameras.\n");
             return -1;
         }
 
-        state->url = urls[0];
+        zarray_get(urls, 0, &state->url);
     }
 
     // Initialize this application as a remote display source. This allows

@@ -260,6 +260,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_islog_t *impl = (impl_islog_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     islog_frame_t *new_frame = (islog_frame_t*) calloc(1, sizeof(islog_frame_t));
 
     int res = read_frame(isrc, new_frame);
@@ -353,7 +355,7 @@ static void print_info(image_source_t *isrc)
 
 image_source_t *image_source_islog_open(url_parser_t *urlp)
 {
-    const char *location = url_parser_get_location(urlp);
+    const char *location = url_parser_get_path(urlp);
 
     image_source_t *isrc = calloc(1, sizeof(image_source_t));
     impl_islog_t *impl = calloc(1, sizeof(impl_islog_t));

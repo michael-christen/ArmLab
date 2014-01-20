@@ -19,7 +19,6 @@
 
 #include "common/string_util.h"
 
-#define IMAGE_SOURCE_UTILS
 #include "image_source.h"
 
 // XXX: We only attempt to support dc1394 Format 7 cameras
@@ -70,6 +69,13 @@ static void print_strobe_warning()
 
         strobe_warned = 1;
     }
+}
+
+static int64_t utime_now()
+{
+    struct timeval tv;
+    gettimeofday (&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
 static int strposat(const char *haystack, const char *needle, int haystackpos)
@@ -1407,6 +1413,8 @@ static int get_frame(image_source_t *isrc, image_source_data_t * frmd)
     assert(isrc->impl_type == IMPL_TYPE);
     impl_dc1394_t *impl = (impl_dc1394_t*) isrc->impl;
 
+    memset(frmd, 0, sizeof(image_source_data_t));
+
     if (impl->started == 0) {
         printf("image_source_dc1394: get_frame called on a source that has not been started. Crash imminent.\n");
     }
@@ -1662,7 +1670,7 @@ static void print_info(image_source_t *isrc)
 image_source_t *image_source_dc1394_open(url_parser_t *urlp)
 {
 //    const char *protocol = url_parser_get_protocol(urlp);
-    const char *location = url_parser_get_location(urlp);
+    const char *location = url_parser_get_host(urlp);
 
     int64_t guid = 0;
 
@@ -1798,14 +1806,14 @@ fail:
     return NULL;
 }
 
-char** image_source_enumerate_dc1394(char **urls)
+void image_source_enumerate_dc1394(zarray_t *urls)
 {
     dc1394_t *dc1394;
     dc1394camera_list_t *list;
 
     dc1394 = dc1394_new();
     if (dc1394 == NULL)
-        return urls;
+        return;
 
     if (dc1394_camera_enumerate (dc1394, &list) < 0)
         goto exit;
@@ -1820,7 +1828,8 @@ char** image_source_enumerate_dc1394(char **urls)
 
         // other useful fields: cam->vendor, cam->model);
         snprintf(buf, 1024, "dc1394://%"PRIx64, list->ids[i].guid);
-        urls = string_array_add(urls, buf);
+        char *p = strdup(buf);
+        zarray_add(urls, &p);
         dc1394_camera_free(cam);
     }
 
@@ -1828,5 +1837,5 @@ char** image_source_enumerate_dc1394(char **urls)
 
 exit:
     dc1394_free(dc1394);
-    return urls;
+    return;
 }

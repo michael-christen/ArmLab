@@ -123,8 +123,6 @@ void dynamixel_set_joint_goal_default(dynamixel_device_t *device,
     speedfrac = dmax(0.0, dmin(1.0, dabs(speedfrac)));
     torquefrac = dmax(0.0, dmin(1.0, torquefrac));
 
-    printf("%f %f %f\n", radians, speedfrac, torquefrac);
-
     double min = device->get_min_position_radians(device);
     double max = device->get_max_position_radians(device);
     radians = dmax(min, dmin(max, radians));

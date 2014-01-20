@@ -11,7 +11,7 @@ LCMTYPES_C := $(addprefix ../lcmtypes/,$(LCMTYPES_C))
 
 LIBDYNAMIXEL=$(LIB_PATH)/libdynamixel.a
 
-all: $(LIBDYNAMIXEL) test driver
+all: $(LIBDYNAMIXEL) test driver example
 
 
 $(LIBDYNAMIXEL): $(DYNAMIXEL_OBJS)
@@ -24,6 +24,10 @@ test: $(LIBDYNAMIXEL) dynamixel_test.o
 driver: $(LIBDYNAMIXEL) arm_driver.c
 	@gcc -o arm_driver arm_driver.c $(LCMTYPES_C) $(DYNAMIXEL_OBJS) $(LDFLAGS) $(CFLAGS)
 	@cp arm_driver ../../bin/
+
+example: $(LIBDYNAMIXEL) arm_example.c
+	@gcc -o arm_example arm_example.c $(LCMTYPES_C) $(DYNAMIXEL_OBJS) $(LDFLAGS) $(CFLAGS)
+	@cp arm_example ../../bin/
 
 clean:
 	@rm -f *.o *~ *.a

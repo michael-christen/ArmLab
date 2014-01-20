@@ -31,11 +31,13 @@ struct arm_state
 {
     // Arm communication
     dynamixel_bus_t *bus;
-    dynamixel_device_t **servos;
+    dynamixel_device_t *servos[NUM_SERVOS];
 
     // LCM
     lcm_t *lcm;
     const dynamixel_command_list_t *cmds;
+    const char *command_channel;
+    const char *status_channel;
 
     // Threading
     pthread_mutex_t status_mutex;
@@ -46,9 +48,9 @@ struct arm_state
 
 static arm_state_t* arm_state_create(const char *busname, const int baud)
 {
-    arm_state_t *arm_state = malloc(sizeof(arm_state));
+    arm_state_t *arm_state = malloc(sizeof(arm_state_t));
     arm_state->bus = serial_bus_create(busname, baud);
-    arm_state->servos = malloc(NUM_SERVOS*sizeof(dynamixel_device_t));
+    //arm_state->servos = (dynamixel_device_t**) malloc(NUM_SERVOS*sizeof(dynamixel_device_t*));
 
     // Create the servos
     for (int id = 0; id < NUM_SERVOS; id++) {
@@ -111,7 +113,7 @@ void* status_loop(void *args)
         }
 
         // Publish
-        dynamixel_status_list_t_publish(arm_state->lcm, "ARM_STATUS", &stats);
+        dynamixel_status_list_t_publish(arm_state->lcm, arm_state->status_channel, &stats);
 
         // Attempt to send messages at a fixed rate
         int64_t max_delay = (1000000 / hz);
@@ -204,8 +206,10 @@ int main(int argc, char **argv)
     getopt_add_bool(gopt, 'h', "help", 0, "Show this help screen");
     getopt_add_string(gopt, 'd', "device", "/dev/ttyUSB0", "Device name");
     getopt_add_int(gopt, '\0', "baud", "1000000", "Device baud rate");
+    getopt_add_string(gopt, '\0', "status-channel", "ARM_STATUS", "LCM status channel");
+    getopt_add_string(gopt, '\0', "command-channel", "ARM_COMMAND", "LCM command channel");
 
-    if (!getopt_parse(gopt, argc, argv, 1)) {
+    if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
         getopt_do_usage(gopt);
         exit(-1);
     }
@@ -215,10 +219,12 @@ int main(int argc, char **argv)
 
     // LCM Initialization
     arm_state->lcm = lcm_create(NULL);
+    arm_state->command_channel = getopt_get_string(gopt, "command-channel");
+    arm_state->status_channel = getopt_get_string(gopt, "status-channel");
     if (!arm_state->lcm)
         return -1;
     dynamixel_command_list_t_subscribe(arm_state->lcm,
-                                       "ARM_COMMAND",
+                                       arm_state->command_channel,
                                        command_handler,
                                        arm_state);
 

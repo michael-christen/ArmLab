@@ -135,6 +135,7 @@ int main(int argc, char **argv)
                 // Read from stdin
                 char c[2];
                 int res = read(STDIN_FILENO, c, 2);   // Will block until \n received
+                assert (res <= 2);
                 if (c[0] >= '1' && c[0] <= '9') {
                     double v = 1.0 * (c[0] - '1') / ('9' - '1');
                     servo->set_goal(servo,

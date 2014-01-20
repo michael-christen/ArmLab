@@ -40,9 +40,8 @@ struct arm_state
     const char *status_channel;
 
     // Threading
-    pthread_mutex_t status_mutex;
+    pthread_mutex_t serial_lock;
     pthread_t status_thread;
-    pthread_mutex_t driver_mutex;
     pthread_t driver_thread;
 };
 
@@ -97,6 +96,7 @@ void* status_loop(void *args)
     while (1) {
         int64_t utime = utime_now();
 
+        pthread_mutex_lock(&arm_state->serial_lock);
         for (int id = 0; id < NUM_SERVOS; id++) {
             stats.statuses[id].utime = utime_now();
 
@@ -111,6 +111,7 @@ void* status_loop(void *args)
 
             dynamixel_device_status_destroy(stat);
         }
+        pthread_mutex_unlock(&arm_state->serial_lock);
 
         // Publish
         dynamixel_status_list_t_publish(arm_state->lcm, arm_state->status_channel, &stats);
@@ -178,6 +179,7 @@ void* driver_loop(void *args)
         // Get commands from somewhere
         const dynamixel_command_list_t *cmds = arm_state->cmds;
 
+        pthread_mutex_lock(&arm_state->serial_lock);
         for (int id = 0; id < cmds->len; id++) {
             dynamixel_command_t cmd = cmds->commands[id];
             dynamixel_command_t last_cmd = last_cmds.commands[id];
@@ -195,6 +197,7 @@ void* driver_loop(void *args)
                 last_cmds.commands[id] = cmd;
             }
         }
+        pthread_mutex_unlock(&arm_state->serial_lock);
     }
 
     return NULL;

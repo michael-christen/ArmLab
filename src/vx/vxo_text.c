@@ -526,7 +526,7 @@ vx_object_t *vxo_text_create(int anchor, const char *alltext)
                 }
 
                 if (1) {
-                    const char *font_names[] = {"serif", "sansserif", "monospace", NULL };
+                    const char *font_names[] = {"serif", "sansserif", "monospaced", NULL };
                     int good = 0;
 
                     for (int k = 0; font_names[k] != NULL; k++) {

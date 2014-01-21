@@ -3,8 +3,8 @@
 #include <stdio.h>
 
 #include "dynamixel_bus.h"
-#include "axseries.h"
-#include "mxseries.h"
+#include "dynamixel_axseries.h"
+#include "dynamixel_mxseries.h"
 
 // === Messages (passed to and from the dynamixel devices over the bus ===
 
@@ -64,11 +64,11 @@ dynamixel_device_t* dynamixel_bus_get_servo(dynamixel_bus_t *bus, uint8_t id)
 
     switch (model) {
         case 0x000c: // definitely for AX12+. Do other AX12 variants have same ID?
-            return axseries_create(bus, id);
+            return dynamixel_axseries_create(bus, id);
         case 0x001d: // MX28
         case 0x0136: // MX64
         case 0x0140: // MX106
-            return mxseries_create(bus, id);
+            return dynamixel_mxseries_create(bus, id);
         default:
             break;
     }

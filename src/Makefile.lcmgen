@@ -9,7 +9,8 @@ LCMTYPES_C := $(addprefix lcmtypes/,$(LCMTYPES_C))
 all: | lcmtypes $(LCMTYPES_C)
 
 lcmtypes/%.c: ../lcmtypes/%.lcm
-	$(LCM) -c --c-cpath lcmtypes --c-hpath lcmtypes $<
+	@echo "\t$<"
+	@$(LCM) -c --c-cpath lcmtypes --c-hpath lcmtypes $<
 
 lcmtypes:
 	mkdir -p lcmtypes

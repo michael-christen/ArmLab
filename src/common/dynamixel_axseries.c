@@ -7,22 +7,22 @@
 #include "common/math_util.h"
 
 // === AX series device implementation =============
-int axseries_is_address_EEPROM(int address)
+static int axseries_is_address_EEPROM(int address)
 {
     return address < 0x18;
 }
 
-double axseries_get_min_position_radians()
+static double axseries_get_min_position_radians()
 {
     return to_radians(-150);
 }
 
-double axseries_get_max_position_radians()
+static double axseries_get_max_position_radians()
 {
     return to_radians(150);
 }
 
-void axseries_set_joint_goal(dynamixel_device_t *device,
+static void axseries_set_joint_goal(dynamixel_device_t *device,
                     double radians,
                     double speedfrac,
                     double torquefrac)
@@ -34,7 +34,7 @@ void axseries_set_joint_goal(dynamixel_device_t *device,
                                      torquefrac);
 }
 
-dynamixel_device_status_t* axseries_get_status(dynamixel_device_t *device)
+static dynamixel_device_status_t* axseries_get_status(dynamixel_device_t *device)
 {
     dynamixel_msg_t *msg = dynamixel_msg_create(2);
     msg->buf[0] = 0x24;
@@ -75,7 +75,7 @@ dynamixel_device_status_t* axseries_get_status(dynamixel_device_t *device)
     return stat;
 }
 
-void axseries_set_rotation_mode(dynamixel_device_t *device, int mode)
+static void axseries_set_rotation_mode(dynamixel_device_t *device, int mode)
 {
     dynamixel_msg_t *msg = dynamixel_msg_create(5);
     msg->buf[0] = 0x06;
@@ -90,15 +90,15 @@ void axseries_set_rotation_mode(dynamixel_device_t *device, int mode)
         dynamixel_msg_destroy(resp);
 }
 
-const char* axseries_get_name(dynamixel_device_t *device)
+static const char* axseries_get_name(dynamixel_device_t *device)
 {
     // XXX Later, give version lookup?
     return "AX-Series";
 }
 
 // === AX series device creation ===================
-dynamixel_device_t* axseries_create(dynamixel_bus_t* bus,
-                                    uint8_t id)
+dynamixel_device_t* dynamixel_axseries_create(dynamixel_bus_t* bus,
+                                              uint8_t id)
 {
     dynamixel_device_t* device = dynamixel_device_create(id);
 

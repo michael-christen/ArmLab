@@ -9,7 +9,7 @@ typedef struct dynamixel_device dynamixel_device_t;
 struct dynamixel_bus;
 typedef struct dynamixel_bus dynamixel_bus_t;
 
-dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
-                                    uint8_t id);
+dynamixel_device_t* dynamixel_mxseries_create(dynamixel_bus_t* bus,
+                                             uint8_t id);
 
 #endif

@@ -1,6 +1,6 @@
 # Only add your directories to this folder if you are 100% sure that
 # it will always compile without warnings.
-SUBDIRS = lcmtypes common imagesource vx vx/gtk apps arm
+SUBDIRS = lcmtypes common imagesource vx vx/gtk apps rexarm
 
 MAKEFLAGS += --no-print-directory
 

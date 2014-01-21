@@ -3,23 +3,25 @@ include ../common.mk
 CFLAGS = $(CFLAGS_COMMON) $(CFLAGS_GLIB) $(CFLAGS_GTK) $(CFLAGS_STD) -msse2 -fPIC -O4
 LDFLAGS = $(LDFLAGS_COMMON) $(LDFLAGS_GLIB) $(LDFLAGS_GTK) $(LDFLAGS_LCMTYPES) $(LDFLAGS_STD)
 
-all: dynamixel_test arm_driver arm_example
+DYNAMIXEL_TEST = ../../bin/dynamixel_test
+REXARM_DRIVER = ../../bin/rexarm_driver
+REXARM_EXAMPLE = ../../bin/rexarm_example
+
+all: $(DYNAMIXEL_TEST) $(REXARM_DRIVER) $(REXARM_EXAMPLE)
 
 
-dynamixel_test: dynamixel_test.o
+$(DYNAMIXEL_TEST): dynamixel_test.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 
-arm_driver: arm_driver.o
+$(REXARM_DRIVER): rexarm_driver.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
-	@cp arm_driver $(BIN_PATH)
 
-arm_example: arm_example.o
+$(REXARM_EXAMPLE): rexarm_example.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
-	@cp arm_driver $(BIN_PATH)
 
 clean:
 	@rm -f *.o *~ *.a
-	@rm -f dynamixel_test arm_driver arm_example
+	@rm -f $(DYNAMIXEL_TEST) $(REXARM_DRIVER) $(REXARM_EXAMPLE)

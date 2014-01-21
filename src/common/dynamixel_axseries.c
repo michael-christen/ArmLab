@@ -1,43 +1,40 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <float.h>
 
-#include "mxseries.h"
+#include "dynamixel_axseries.h"
 #include "dynamixel_device.h"
 
 #include "common/math_util.h"
 
-// === MX series device implementation =============
-int mxseries_is_address_EEPROM(int address)
+// === AX series device implementation =============
+int axseries_is_address_EEPROM(int address)
 {
-    return address < 0x19;
+    return address < 0x18;
 }
 
-double mxseries_get_min_position_radians()
+double axseries_get_min_position_radians()
 {
-    return -M_PI;
+    return to_radians(-150);
 }
 
-double mxseries_get_max_position_radians()
+double axseries_get_max_position_radians()
 {
-    return M_PI;
+    return to_radians(150);
 }
 
-// XXX PID controls currently not supported
-
-void mxseries_set_joint_goal(dynamixel_device_t *device,
+void axseries_set_joint_goal(dynamixel_device_t *device,
                     double radians,
                     double speedfrac,
                     double torquefrac)
 {
     dynamixel_set_joint_goal_default(device,
-                                     0xfff,
+                                     0x3ff,
                                      radians,
                                      speedfrac,
                                      torquefrac);
 }
 
-dynamixel_device_status_t* mxseries_get_status(dynamixel_device_t *device)
+dynamixel_device_status_t* axseries_get_status(dynamixel_device_t *device)
 {
     dynamixel_msg_t *msg = dynamixel_msg_create(2);
     msg->buf[0] = 0x24;
@@ -55,8 +52,8 @@ dynamixel_device_status_t* mxseries_get_status(dynamixel_device_t *device)
 
     dynamixel_device_status_t *stat = dynamixel_device_status_create();
     stat->position_radians = ((resp->buf[1] & 0xff) +
-                              ((resp->buf[2] & 0xf) << 8)) *
-                             2 * M_PI / 0xfff - M_PI;
+                              ((resp->buf[2] & 0x3) << 8)) *
+                             to_radians(300) / 1024.0 - to_radians(150);
     int tmp = ((resp->buf[3] & 0xff) + ((resp->buf[4] & 0x3f) << 8));
     if (tmp < 1024)
         stat->speed = tmp / 1023.0;
@@ -78,14 +75,14 @@ dynamixel_device_status_t* mxseries_get_status(dynamixel_device_t *device)
     return stat;
 }
 
-void mxseries_set_rotation_mode(dynamixel_device_t *device, int mode)
+void axseries_set_rotation_mode(dynamixel_device_t *device, int mode)
 {
     dynamixel_msg_t *msg = dynamixel_msg_create(5);
     msg->buf[0] = 0x06;
     msg->buf[1] = 0;
     msg->buf[2] = 0;
     msg->buf[3] = mode ? 0 : 0xff;
-    msg->buf[4] = mode ? 0 : 0x0f;
+    msg->buf[4] = mode ? 0 : 0x03;
     dynamixel_msg_t *resp = device->ensure_EEPROM(device, msg);
 
     dynamixel_msg_destroy(msg);
@@ -93,14 +90,14 @@ void mxseries_set_rotation_mode(dynamixel_device_t *device, int mode)
         dynamixel_msg_destroy(resp);
 }
 
-const char* mxseries_get_name(dynamixel_device_t *device)
+const char* axseries_get_name(dynamixel_device_t *device)
 {
-    // XXX Later, give version lookup
-    return "MX-Series";
+    // XXX Later, give version lookup?
+    return "AX-Series";
 }
 
-// === MX series device creation ===================
-dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
+// === AX series device creation ===================
+dynamixel_device_t* axseries_create(dynamixel_bus_t* bus,
                                     uint8_t id)
 {
     dynamixel_device_t* device = dynamixel_device_create(id);
@@ -108,13 +105,13 @@ dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
     // Bus stuff
     device->bus = bus;
 
-    device->is_address_EEPROM = mxseries_is_address_EEPROM;
-    device->get_min_position_radians = mxseries_get_min_position_radians;
-    device->get_max_position_radians = mxseries_get_max_position_radians;
-    device->set_joint_goal = mxseries_set_joint_goal;
-    device->get_status = mxseries_get_status;
-    device->set_rotation_mode = mxseries_set_rotation_mode;
-    device->get_name = mxseries_get_name;
+    device->is_address_EEPROM = axseries_is_address_EEPROM;
+    device->get_min_position_radians = axseries_get_min_position_radians;
+    device->get_max_position_radians = axseries_get_max_position_radians;
+    device->set_joint_goal = axseries_set_joint_goal;
+    device->get_status = axseries_get_status;
+    device->set_rotation_mode = axseries_set_rotation_mode;
+    device->get_name = axseries_get_name;
 
     // Return delay time
     uint8_t delay = 0x02;   // each unit = 2 usec
@@ -122,14 +119,6 @@ dynamixel_device_t* mxseries_create(dynamixel_bus_t* bus,
     msg->buf[0] = 0x5;
     msg->buf[1] = delay;
     dynamixel_msg_t *resp = device->ensure_EEPROM(device, msg);
-
-    if (resp != NULL)
-        dynamixel_msg_destroy(resp);
-
-    // Set Alarm Shutdown (EEPROM)
-    msg->buf[0] = 18;
-    msg->buf[1] = 36;
-    resp = device->ensure_EEPROM(device, msg);
 
     dynamixel_msg_destroy(msg);
     if (resp != NULL)

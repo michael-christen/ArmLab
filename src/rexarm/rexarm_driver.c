@@ -34,7 +34,8 @@ struct arm_state
 
     // LCM
     lcm_t *lcm;
-    const dynamixel_command_list_t *cmds;
+    pthread_mutex_t cmd_lock;
+    dynamixel_command_list_t *cmds;
     const char *command_channel;
     const char *status_channel;
 
@@ -133,7 +134,11 @@ static void command_handler(const lcm_recv_buf_t *rbuf,
                             void *user)
 {
     arm_state_t *arm_state = user;
-    arm_state->cmds = msg;
+    pthread_mutex_lock(&arm_state->cmd_lock);
+    if (arm_state->cmds != NULL)
+        dynamixel_command_list_t_destroy(arm_state->cmds);
+    arm_state->cmds = dynamixel_command_list_t_copy(msg);
+    pthread_mutex_unlock(&arm_state->cmd_lock);
 }
 
 void* driver_loop(void *args)
@@ -176,7 +181,9 @@ void* driver_loop(void *args)
         }
 
         // Get commands from somewhere
-        const dynamixel_command_list_t *cmds = arm_state->cmds;
+        pthread_mutex_lock(&arm_state->cmd_lock);
+        dynamixel_command_list_t *cmds = arm_state->cmds;
+        pthread_mutex_unlock(&arm_state->cmd_lock);
 
         pthread_mutex_lock(&arm_state->serial_lock);
         for (int id = 0; id < cmds->len; id++) {

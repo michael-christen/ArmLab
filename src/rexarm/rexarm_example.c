@@ -105,7 +105,7 @@ void* command_loop(void *data)
             cmds.commands[id].utime = utime_now();
             cmds.commands[id].position_radians = 0;
             cmds.commands[id].speed = 0.5;
-            cmds.commands[id].max_torque = 0.5;
+            cmds.commands[id].max_torque = 0.0;
         }
         dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
 

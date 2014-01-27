@@ -35,6 +35,7 @@ void gui_update_servo_pos(double servo_pos[]){
 	for(i = 0; i < NUM_SERVOS ;i++){
 		servo_positions[i] = servo_pos[i];
 	}
+	servo_positions[0] += M_PI;
 	//servo_positions[4] -= M_PI/2.0;
 }
 
@@ -191,7 +192,7 @@ void* render_loop(void *data)
 
 			char statusText[128] = "";
 		
-			sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0], servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
+			sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
 		
 			vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
 			vx_buffer_add_back(vx_world_get_buffer(gstate->world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));
@@ -271,6 +272,7 @@ void* render_arm(void* data){
 		vxo_mat_scale3(1.5, 1.5, 1),
 		vxo_grid()));
 	vx_buffer_swap(vx_world_get_buffer(gstate->world, "grid"));
+
 	while(gstate->running){
 		double block1size = 7;
 		double block2size = 4;
@@ -289,6 +291,8 @@ void* render_arm(void* data){
 		}else{
 			totalyshift = -25;
 		}
+
+		
 
 		vx_object_t *block1 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
 				vxo_mat_translate3(totalxshift, block1size/2.0 + totalyshift, totalzshift),
@@ -351,7 +355,7 @@ void* render_arm(void* data){
 		totalsize += block5size*cos(totalangle);
 
 		vx_object_t *block6 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2.0),
-				vxo_mat_translate3(cos(servo_positions[0])*cos(totalangle) + totalxshift -sin(totalangle)*block6size/2.0*cos(servo_positions[0]), totalsize + block6size/2.0*cos(totalangle) + sin(totalangle) + totalyshift, totalzshift - sin(servo_positions[0]+servo_positions[4])*cos(totalangle) + block6size/2.0*sin(servo_positions[0])*sin(totalangle)),
+				vxo_mat_translate3(cos(servo_positions[0])*cos(totalangle) + totalxshift -sin(totalangle)*block6size/2.0*cos(servo_positions[0]), totalsize + block6size/2.0*cos(totalangle) + sin(totalangle) + totalyshift, totalzshift - sin(servo_positions[0])*cos(totalangle) + block6size/2.0*sin(servo_positions[0])*sin(totalangle)),
 				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(totalangle)),
 				//vxo_mat_rotate_x(servo_positions[4]*sin(totalangle)),
 				vxo_mat_rotate_z(totalangle),
@@ -381,7 +385,7 @@ void* render_arm(void* data){
 	
 		char statusText[128] = "";
 		
-		sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0], servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
+		sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
 		
 		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
 	vx_buffer_add_back(vx_world_get_buffer(gstate->world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));

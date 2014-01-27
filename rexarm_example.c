@@ -23,6 +23,10 @@
 
 #define NUM_SERVOS 6
 #define _USE_MATH_DEFINES //PI
+#define ARM_L1 11
+#define ARM_L2 10
+#define ARM_L3 10
+#define ARM_L4 18
 
 typedef struct state state_t;
 struct state
@@ -37,6 +41,36 @@ struct state
     pthread_t command_thread;
 	pthread_t gui_thread;
 };
+
+void getServoAngles(double *servos, double theta, double r, double height) {
+	const double yDisp = ARM_L4 + height - ARM_L1;
+	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) + pow(yDisp, 2));
+
+	servos[0] = theta;
+
+	if (r <= rCrit) {
+		double h, tc, ta, tb;
+
+		h = sqrt(pow(r, 2) + pow(yDisp, 2));
+		tc = atan(yDisp/r);
+		ta = acos((pow(ARM_L3, 2) - pow(ARM_L2, 2) - pow(h, 2)) / (-2 * ARM_L2 * h));
+		tb = acos((pow(h, 2) - pow(ARM_L2, 2) - pow(ARM_L3, 2)) / (-2 * ARM_L2 * ARM_L3));
+
+		servos[1] = PI/2 - tc - ta;
+		servos[2] = PI - tb;
+		servos[3] = PI - servos[1] - servos[2];
+	} else {
+		// Implement stretch math
+	}
+}
+
+void openClaw(double *servos){
+	servos[5] = M_PI/3;
+}
+
+void closeClaw(double *servos){
+	servos[5] = M_PI/2;
+}
 
 static int64_t utime_now()
 {
@@ -115,6 +149,38 @@ void* status_loop(void *data)
         }
     }
 	
+    return NULL;
+}
+
+void* command_test(void *data){
+	int hz = 30;
+
+    state_t *state = data;
+
+    dynamixel_command_list_t cmds;
+    cmds.len = NUM_SERVOS;
+    cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
+
+	double positions[NUM_SERVOS];
+
+	getServoAngles(positions, M_PI, 13, 8);
+	openClaw(positions);
+
+    // Send LCM commands to arm. Normally, you would update positions, etc,
+    // but here, we will just home the arm.
+    for (int id = 0; id < NUM_SERVOS; id++) {
+        cmds.commands[id].utime = utime_now();
+        cmds.commands[id].position_radians = positions[id];
+        cmds.commands[id].speed = 0.1;
+		cmds.commands[id].max_torque = .5;
+    }
+    dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
+
+    usleep(1000000/hz);
+
+	
+    free(cmds.commands);
+
     return NULL;
 }
 
@@ -201,7 +267,7 @@ int main(int argc, char **argv)
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
 
     pthread_create(&state->status_thread, NULL, status_loop, state);
-    pthread_create(&state->command_thread, NULL, command_home, state);
+    pthread_create(&state->command_thread, NULL, command_test, state);
 	pthread_create(&state->gui_thread, NULL, gui_create(argc, argv), state);
 
     // Probably not needed, given how this operates

@@ -146,15 +146,24 @@ static void click_handler(const lcm_recv_buf_t *rbuf,
 		double origx = display_w/4.0;
 		double origy = 3*display_h/4.0;
 
-		double deltay = y - origy;
-		double deltax = x - origx;
+		double deltay = (y - origy)/5.0;
+		double deltax = (x - origx)/5.0;
 
 		double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
 		double theta = atan(deltay/deltax);
+
+		if(deltax < 0 && deltay > 0){
+			theta += M_PI;
+		}
+		if(deltax < 0 && deltay < 0){
+			theta -= M_PI;
+		}
 		double height = 8;
 
-		printf("%f, %f\n", deltax, deltay);
-		//sendCommand(state, theta, r, height, 2, .1, .4);
+		printf("%f\n", r);
+		if(r < 13.0){
+			sendCommand(state, theta, r, height, 2, .1, .4);
+		}
 
 	}else{
 		//Camera

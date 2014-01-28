@@ -436,6 +436,24 @@ void* render_above(void* data){
 			vxo_points_style(vx_green, 2.0f)))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
 
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossx"),
+			vxo_pix_coords(VX_ORIGIN_CENTER,
+			vxo_chain(vxo_mat_translate3(0, 0, -1),
+			vxo_mat_scale3(DISPLAY_W/2.0, 1, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 2.0f),
+			vxo_points_style(vx_red, 2.0f)))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
+			vxo_pix_coords(VX_ORIGIN_CENTER,
+			vxo_chain(vxo_mat_translate3(0, 0, -1),
+			vxo_mat_scale3(1, DISPLAY_H/2.0, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 2.0f),
+			vxo_points_style(vx_red, 2.0f)))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
+
 		usleep(25000);
 	}
 	vx_layer_destroy(layer);

@@ -133,32 +133,33 @@ static void click_handler(const lcm_recv_buf_t *rbuf,
 
 	state_t* state = user;
 
-	int x, y, display_h, display_w;
+	double x, y, display_h, display_w;
 	dynamixel_status_t stat = msg->statuses[0];
 	x = stat.speed;
 	y = stat.load;
-	display_h = stat.voltage;
+	display_h = stat.voltage - 50;
 	display_w = stat.temperature;
 
 	if(x < display_w/2.0){
 		//Bird's-eye view
 
 		double origx = display_w/4.0;
-		double origy = display_h/4.0;
+		double origy = 3*display_h/4.0;
 
 		double deltay = y - origy;
 		double deltax = x - origx;
 
 		double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
 		double theta = atan(deltay/deltax);
-		double height = 3;
+		double height = 8;
 
-		sendCommand(state, theta, r, height, 2, .1, .4);
+		printf("%f, %f\n", deltax, deltay);
+		//sendCommand(state, theta, r, height, 2, .1, .4);
 
 	}else{
 		//Camera
 	}
-	printf("%i, %i\n", x, y);
+	//printf("%i, %i\n", x, y);
 }
 
 void* status_loop(void *data)
@@ -205,7 +206,7 @@ void* status_loop(void *data)
 
 void* command_test(void *data){
 	state_t *state = data;
-	sendCommand(state, M_PI, 13, 0, 1, .1, .5);
+	sendCommand(state, M_PI, 13, 8, 1, .1, .5);
 	/*int hz = 30;
 
    	state_t *state = data;
@@ -320,7 +321,7 @@ int main(int argc, char **argv)
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
 
     pthread_create(&state->status_thread, NULL, status_loop, state);
-    pthread_create(&state->command_thread, NULL, command_test, state);
+    //pthread_create(&state->command_thread, NULL, command_test, state);
 	pthread_create(&state->gui_thread, NULL, gui_create(argc, argv), state);
 
     // Probably not needed, given how this operates

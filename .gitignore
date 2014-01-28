@@ -4,3 +4,5 @@
 src
 gui
 *.png
+lcmtypes/*.h
+lcmtypes/*.c

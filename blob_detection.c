@@ -7,7 +7,8 @@ int label_num;
 //Returns distance from test_px to match_px 
 unsigned int color_dist(uint32_t p1, uint32_t p2) {
     //Only first 8 bits are used until computation
-    uint32_t r1, g1, b1, a1, r2, g2, b2, a2;
+    uint32_t r1, g1, b1, r2, g2, b2;
+    //uint32_t a1, a2;
     r1 = p1 & 0xFF;
     r2 = p2 & 0XFF;
     g1 = (p1 >> 8) & 0xFF;
@@ -15,8 +16,8 @@ unsigned int color_dist(uint32_t p1, uint32_t p2) {
     b1 = (p1 >> 16) & 0XFF;
     b2 = (p2 >> 16) & 0XFF;
     //Can ignore alpha values
-    a1 = (p1 >> 24) & 0xFF;
-    a2 = (p2 >> 24) & 0xFF;
+//    a1 = (p1 >> 24) & 0xFF;
+ //   a2 = (p2 >> 24) & 0xFF;
     return abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2);
     //return pow((r1 - r2),2) + pow((g1 - g2),2) + pow((b1 - b2),2);
 }

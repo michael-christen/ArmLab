@@ -8,7 +8,7 @@ REXARM_DRIVER = ../../bin/rexarm_driver
 REXARM_EXAMPLE = ../../bin/rexarm_example
 LIB = ../../lib
 
-all: $(DYNAMIXEL_TEST) $(REXARM_DRIVER) $(REXARM_EXAMPLE) $(GUI)
+all: $(DYNAMIXEL_TEST) $(REXARM_DRIVER) $(REXARM_EXAMPLE)
 
 
 $(DYNAMIXEL_TEST): dynamixel_test.o
@@ -19,9 +19,12 @@ $(REXARM_DRIVER): rexarm_driver.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 
-$(REXARM_EXAMPLE): rexarm_example.o gui.o eecs467_util.o
+$(REXARM_EXAMPLE): rexarm_example.o gui.o eecs467_util.o blob_detection.o disjoint.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
+
+#blob_detection.o: blob_detection.c blob_detection.h disjoint.c disjoint.h
+#	@$(CC) -c blob_detection.c disjoint.c
 
 clean:
 	@rm -f *.o *~ *.a

@@ -6,8 +6,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define COLOR_THRESHOLD 40.0
-#define TEMPLATE_PX 0xfdff73ff
+#define COLOR_THRESHOLD 100.0
+#define TEMPLATE_PX 0xff32ffff
+#define SHOW_PX 0xffe127ff
+#define MIN_PXS 50
 #define MAX_NUM_NEIGHBORS 8
 #define MAX_NUM_BALLS 1000
 

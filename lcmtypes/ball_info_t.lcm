@@ -1,0 +1,9 @@
+struct ball_info_t
+{
+  int64_t utime;
+
+  //X & y coordinate of the ball in <domain>
+  double x;
+  double y;
+  int16_t num_pxs;
+}

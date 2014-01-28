@@ -13,6 +13,8 @@
 #include "lcmtypes/dynamixel_status_list_t.h"
 #include "lcmtypes/dynamixel_status_t.h"
 
+#include "blob_detection.h"
+
 typedef struct gstate gstate_t;
 
 

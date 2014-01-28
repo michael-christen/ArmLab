@@ -18,8 +18,8 @@ unsigned int color_dist(uint32_t p1, uint32_t p2) {
     //Can ignore alpha values
 //    a1 = (p1 >> 24) & 0xFF;
  //   a2 = (p2 >> 24) & 0xFF;
-    return abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2);
-    //return pow((r1 - r2),2) + pow((g1 - g2),2) + pow((b1 - b2),2);
+    //return abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2);
+    return sqrt(pow((r1 - r2),2) + pow((g1 - g2),2) + pow((b1 - b2),2));
 }
 
 unsigned int is_ball(uint32_t px) {
@@ -92,6 +92,8 @@ void blob_detection(image_u32_t *im) {
     //Array of Set *
     Set * links [MAX_NUM_BALLS];
     ball_t balls [MAX_NUM_BALLS];
+    ball_t final_balls [MAX_NUM_BALLS];
+    int final_num_balls = 0;
     int num_links = 0;
     //each px has a label, 0 is default
     int labels [im->stride*im->height];
@@ -100,12 +102,14 @@ void blob_detection(image_u32_t *im) {
     //Immediate neighbor id's
     int neighbors[MAX_NUM_NEIGHBORS];
     int len_neighbors;
+    int y, x, id, i;
+    uint32_t px;
     label_num = 1;
     //1st pass
-    for(int y = 0; y < im->height; ++y) {
-	for(int x = 0; x < im->width; ++x) {
-	    int id = im->stride*y + x;
-	    uint32_t px = im->buf[id];
+    for(y = 0; y < im->height; ++y) {
+	for(x = 0; x < im->width; ++x) {
+	    id = im->stride*y + x;
+	    px = im->buf[id];
 	    if(is_ball(px)){
 		len_neighbors = getNeighbors(im, x, y, neighbors);
 		if(len_neighbors) {
@@ -127,28 +131,39 @@ void blob_detection(image_u32_t *im) {
 	}
     }
     //Init balls
-    for(int i = 0; i <= label_num; ++i) {
+    for(i = 0; i <= label_num; ++i) {
 	balls[i].x = 0;
 	balls[i].y = 0;
 	balls[i].num_px = 0;
     }
     //2nd pass
-    for(int y = 0; y < im->height; ++y) {
-	for(int x = 0; x < im->width; ++x) {
-	    int id = im->stride*y + x;
-	    uint32_t px = im->buf[id];
+    for(y = 0; y < im->height; ++y) {
+	for(x = 0; x < im->width; ++x) {
+	    id = im->stride*y + x;
+	    px = im->buf[id];
 	    if(is_ball(px)){
 		labels[id] = set_find(links[labels[id]])->val;
 		balls[labels[id]].x += x;
 		balls[labels[id]].y += y;
 		balls[labels[id]].num_px ++;
-		im->buf[id] = 0x91b9e2ff;
+		im->buf[id] = SHOW_PX;
 	    }
 	}
     }
-    printf("%d Balls\n",label_num-1);
-    for(int i = 1; i <= label_num; ++i) {
-	printf("X: %f, Y: %f\n",(balls[i].x+0.0)/ balls[i].num_px,
-	    (balls[i].y+0.0)/balls[i].num_px);
+    //Filter out noise / not enough pixels
+    for(i = 1; i < label_num; ++i) {
+	if(balls[i].num_px >= MIN_PXS) {
+	    final_balls[final_num_balls++] = balls[i];
+	}
+    }
+    printf("%d Balls\n", final_num_balls);
+    if(final_num_balls) {
+	for(i = 0; i < final_num_balls; ++i) {
+	    if(final_balls[i].num_px >= MIN_PXS) {
+		printf("X: %f, Y: %f, pxs: %d\n",(final_balls[i].x+0.0)/ final_balls[i].num_px,
+			(final_balls[i].y+0.0)/final_balls[i].num_px,
+			final_balls[i].num_px);
+	    }
+	}
     }
 }

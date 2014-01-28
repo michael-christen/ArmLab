@@ -105,6 +105,7 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].voltage = DISPLAY_H;
 		stats.statuses[0].temperature = DISPLAY_W;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
+		printf("clicked x:%f, clicked y:%f\n", mouse->x, mouse->y);
 	}
 
     // Store the last mouse click
@@ -164,6 +165,7 @@ void* render_camera(void *data)
     // Set up the imagesource
 	printf("test1\n");
     image_source_t *isrc = image_source_open(gstate->url);
+    printf("opening camera: %s", gstate->url);
 	printf("test2\n");
     if (isrc == NULL) {
         printf("Error opening device.\n");
@@ -194,6 +196,9 @@ void* render_camera(void *data)
             } else {
                 // Handle frame
                 image_u32_t *im = image_convert_u32(frmd);
+
+		blob_detection(im);
+
                 if (im != NULL) {
 
                     vx_object_t *vim = vxo_image_from_u32(im,
@@ -204,6 +209,28 @@ void* render_camera(void *data)
                                        vxo_chain(vxo_mat_translate3(0,0,camera_zoom),
                                                  vim));
                     vx_buffer_swap(vx_world_get_buffer(new_world, "image"));
+
+		    /*
+		    vx_object_t * vo = vxo_chain(
+			    vxo_mat_translate3(state->tm_x +
+				(state->template_im->width >> 1),
+				state->query_im->height - state->tm_y -
+				(state->template_im->width >> 1), 0),
+			    vxo_mat_scale3(state->template_im->width,state->template_im->height,1),
+			    vxo_box(vxo_lines_style(vx_purple, 3))
+			    );
+			    */
+		    /*
+		    vx_object_t * vo =
+			vxo_chain(
+				vxo_mat_scale3(500, 500, 1),
+				vxo_box(vxo_lines_style(vx_purple, 3))
+			);
+		    vx_buffer_add_back(vx_world_get_buffer(new_world, "square"), vo);
+		    vx_buffer_swap(vx_world_get_buffer(new_world, "square"));
+		    */
+
+
                     image_u32_destroy(im);
                 }
             }
@@ -613,8 +640,13 @@ void* gui_create(int argc, char **argv){
             printf("Found no cameras.\n");
             return NULL;
         }
+	if(zarray_size(urls) >= 3) {
+	    zarray_get(urls, 2, &gstate->url);
+	}
+	else {
+	    zarray_get(urls, 0, &gstate->url);
+	}
 
-        zarray_get(urls, 0, &gstate->url);
     }
 
     // Initialize this application as a remote display source. This allows

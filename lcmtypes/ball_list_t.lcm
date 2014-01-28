@@ -1,0 +1,5 @@
+struct ball_list_t
+{
+  int32_t len;
+  ball_info_t balls[len];
+}

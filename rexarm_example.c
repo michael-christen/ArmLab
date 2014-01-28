@@ -42,6 +42,13 @@ struct state
 	pthread_t gui_thread;
 };
 
+static int64_t utime_now()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
 void getServoAngles(double *servos, double theta, double r, double height) {
 	const double yDisp = ARM_L4 + height - ARM_L1;
 	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) + pow(yDisp, 2));
@@ -72,11 +79,33 @@ void closeClaw(double *servos){
 	servos[5] = M_PI/2;
 }
 
-static int64_t utime_now()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+void sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) {
+	
+	dynamixel_command_list_t cmds;
+    cmds.len = NUM_SERVOS;
+    cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
+
+	double positions[NUM_SERVOS];
+
+	getServoAngles(positions, theta, r, height);
+
+	if(clawOpen == 0){
+		openClaw(positions);
+	}else if(clawOpen == 1){
+		closeClaw(positions);
+	}	//Don't change claw if other value
+
+    // Send LCM commands to arm. Normally, you would update positions, etc,
+    // but here, we will just home the arm.
+    for (int id = 0; id < NUM_SERVOS; id++) {
+        cmds.commands[id].utime = utime_now();
+        cmds.commands[id].position_radians = positions[id];
+        cmds.commands[id].speed = speed;
+		cmds.commands[id].max_torque = torque;
+    }
+    dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
+
+	free(cmds.commands);
 }
 
 static void status_handler(const lcm_recv_buf_t *rbuf,
@@ -102,11 +131,33 @@ static void click_handler(const lcm_recv_buf_t *rbuf,
                            const dynamixel_status_list_t *msg,
                            void *user){
 
-	int x, y;
+	state_t* state = user;
+
+	int x, y, display_h, display_w;
 	dynamixel_status_t stat = msg->statuses[0];
 	x = stat.speed;
 	y = stat.load;
+	display_h = stat.voltage;
+	display_w = stat.temperature;
 
+	if(x < display_w/2.0){
+		//Bird's-eye view
+
+		double origx = display_w/4.0;
+		double origy = display_h/4.0;
+
+		double deltay = y - origy;
+		double deltax = x - origx;
+
+		double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
+		double theta = atan(deltay/deltax);
+		double height = 3;
+
+		sendCommand(state, theta, r, height, 2, .1, .4);
+
+	}else{
+		//Camera
+	}
 	printf("%i, %i\n", x, y);
 }
 
@@ -153,9 +204,11 @@ void* status_loop(void *data)
 }
 
 void* command_test(void *data){
-	int hz = 30;
+	state_t *state = data;
+	sendCommand(state, M_PI, 13, 0, 1, .1, .5);
+	/*int hz = 30;
 
-    state_t *state = data;
+   	state_t *state = data;
 
     dynamixel_command_list_t cmds;
     cmds.len = NUM_SERVOS;
@@ -172,14 +225,14 @@ void* command_test(void *data){
         cmds.commands[id].utime = utime_now();
         cmds.commands[id].position_radians = positions[id];
         cmds.commands[id].speed = 0.1;
-		cmds.commands[id].max_torque = .5;
+		cmds.commands[id].max_torque = .0;
     }
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
 
     usleep(1000000/hz);
 
 	
-    free(cmds.commands);
+    free(cmds.commands);*/
 
     return NULL;
 }

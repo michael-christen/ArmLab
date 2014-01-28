@@ -2,6 +2,8 @@
 #include "gui.h"
 
 #define NUM_SERVOS 6
+#define DISPLAY_H 800
+#define DISPLAY_W 1000
 // It's good form for every application to keep its gstate in a struct.
 
 struct gstate
@@ -12,6 +14,7 @@ struct gstate
     vx_application_t  vxapp;
     getopt_t         *gopt;
     parameter_gui_t  *pg;
+	vx_display_t 	 *disp;
 
     vx_world_t *world;  // Where vx objects are live
 
@@ -21,7 +24,7 @@ struct gstate
     pthread_t animate_thread;
 };
 
-int camera_zoom = 400;
+int camera_zoom = 650;
 int camera_show = 1;
 int arm_zoom = 25;
 int view_above = 1;
@@ -99,6 +102,8 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].utime = utime_now();
 		stats.statuses[0].speed = mouse->x;
 		stats.statuses[0].load = mouse->y;
+		stats.statuses[0].voltage = DISPLAY_H;
+		stats.statuses[0].temperature = DISPLAY_W;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
 	}
 
@@ -109,11 +114,17 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
     return 0; // Returning 0 says that you have consumed the event. If the event is not consumed (return 1), then it is passed down the chain to the other event handlers.
 }
 
+static void eh_destroy(vx_event_handler_t * vh)
+{
+    free(vh->impl);
+    free(vh);
+}
+
 // === Your code goes here ================================================
 // The render loop handles your visualization updates. It is the function run
 // by the animate_thread. It periodically renders the contents on the
 // vx world contained by gstate
-void* render_loop(void *data)
+void* render_camera(void *data)
 {
     //int fps = 60;
     gstate_t *gstate = data;
@@ -122,23 +133,33 @@ void* render_loop(void *data)
 		usleep(1000);
 	}
 
+	vx_world_t *new_world = vx_world_create();
+	vx_layer_t *layer = vx_layer_create(new_world);
+
 	event_state_t *event_state = malloc(sizeof(event_state_t));
 	vx_event_handler_t *my_event_handler = malloc(sizeof(vx_event_handler_t));
 	my_event_handler->dispatch_order = 0; // Lower number here means that you get higher priority in processing events.
 	my_event_handler->impl = event_state;
+	my_event_handler->destroy = eh_destroy;
 	my_event_handler->mouse_event = custom_mouse_event;
 
 	zhash_iterator_t it;
 	zhash_iterator_init(gstate->layers, &it);
 	vx_display_t *key;
 	vx_layer_t *value;
-	
+
+	zhash_iterator_next(&it, &key, &value);
+	vx_layer_set_display(layer, key);
+
+	zhash_put(gstate->layers, &key, &layer, NULL, NULL);
+
+	float position[4] = {0.5f, 0.5f, 0.5f, 0.5f};
 	float lowLeft[2] = {0, 0};
 	float upRight[2] = {1296, 964};	//Camera dimensions
-	while(zhash_iterator_next(&it, &key, &value)){
-		vx_layer_camera_fit2D(value, lowLeft, upRight, 1); 
-		vx_layer_add_event_handler(value, my_event_handler);
-	}
+
+	vx_layer_set_viewport_rel(layer, position);
+	vx_layer_add_event_handler(layer, my_event_handler);
+	vx_layer_camera_fit2D(layer, lowLeft, upRight, 1); 
 
     // Set up the imagesource
 	printf("test1\n");
@@ -179,72 +200,191 @@ void* render_loop(void *data)
                                                           VXO_IMAGE_FLIPY,
                                                           VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
 
-                    vx_buffer_add_back(vx_world_get_buffer(gstate->world, "image"),
+                    vx_buffer_add_back(vx_world_get_buffer(new_world, "image"),
                                        vxo_chain(vxo_mat_translate3(0,0,camera_zoom),
                                                  vim));
-                    vx_buffer_swap(vx_world_get_buffer(gstate->world, "image"));
+                    vx_buffer_swap(vx_world_get_buffer(new_world, "image"));
                     image_u32_destroy(im);
                 }
             }
 
             fflush(stdout);
             isrc->release_frame(isrc, frmd);
-
-			char statusText[128] = "";
-		
-			sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
-		
-			vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
-			vx_buffer_add_back(vx_world_get_buffer(gstate->world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));
-			vx_buffer_swap(vx_world_get_buffer(gstate->world, "text"));
         }
-		/*
-        // Example rendering of vx primitives
-        double rad = (vx_mtime() % 5000) * 2 * M_PI / 5e3;   // [0,2PI]
-        double osc = ((vx_mtime() % 5000) / 5e3) * 2 - 1;    // [-1, 1]
-
-        // Creates a blue box and applies a series of rigid body transformations
-        // to it. A vxo_chain applies its arguments sequentially. In this case,
-        // then, we rotate our coordinate frame by rad radians, as determined
-        // by the current time above. Then, the origin of our coordinate frame
-        // is translated 0 meters along its X-axis and 10 meters along its
-        // Y-axis. Finally, a 1x1x1 cube (or box) is rendered centered at the
-        // origin, and is rendered with the blue mesh style, meaning it has
-        // solid, blue sides.
-        vx_object_t *vo = vxo_chain(vxo_mat_rotate_z(rad),
-                                    vxo_mat_translate2(0,10),
-                                    vxo_sphere(vxo_mesh_style(vx_blue)));
-
-        // Then, we add this object to a buffer awaiting a render order
-        vx_buffer_add_back(vx_world_get_buffer(gstate->world, "rot-sphere"), vo);
-
-        // Now we will render a red box that translates back and forth. This
-        // time, there is no rotation of our coordinate frame, so the box will
-        // just slide back and forth along the X axis. This box is rendered
-        // with a red line style, meaning it will appear as a red wireframe,
-        // in this case, with lines 2 px wide.
-        vo = vxo_chain(vxo_mat_translate2(osc*5,0),
-                       vxo_box(vxo_lines_style(vx_red, 2)));
-
-        // We add this object to a different buffer so it may be rendered
-        // separately if desired
-        vx_buffer_add_back(vx_world_get_buffer(gstate->world, "osc-square"), vo);
-
-        // Now, we update both buffers
-        vx_buffer_swap(vx_world_get_buffer(gstate->world, "rot-sphere"));
-        vx_buffer_swap(vx_world_get_buffer(gstate->world, "osc-square"));
-
-
-        uslee(1000000/fps);*/
     }
 
     if (isrc != NULL)
         isrc->stop(isrc);
 
+	vx_layer_destroy(layer);
+	vx_world_destroy(new_world);
     return NULL;
 }
 
-void* render_arm(void* data){
+typedef struct ArmState Arm_t;
+struct ArmState{
+		double block1size;
+		double block2size;
+		double block3size;
+		double block4size;
+		double block5size;
+		double block6size;
+		double totalsize;
+		double totalxshift;
+		double totalzshift;
+		double totalyshift;
+		double totalangle;
+		float color[4];
+};
+
+vx_object_t* render1(int above, Arm_t* arm){
+	vx_object_t *block1 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
+					vxo_mat_translate3(arm->totalxshift, arm->block1size/2.0 + arm->totalyshift, arm->totalzshift),
+					vxo_mat_rotate_y(M_PI/2.0),
+					vxo_mat_scale3(3, arm->block1size, 5),
+					vxo_box(vxo_mesh_style(arm->color),
+					vxo_lines_style(vx_yellow, 2.0f)));
+
+	return block1;
+}
+
+vx_object_t* render2(int above, Arm_t* arm){
+	vx_object_t *block2 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
+				vxo_mat_translate3(arm->totalxshift, arm->totalsize + arm->block2size/2.0 + arm->totalyshift, arm->totalzshift),
+				vxo_mat_rotate_y(servo_positions[0]),
+				vxo_mat_scale3(3, arm->block2size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+
+	arm->totalsize += arm->block2size;
+	return block2;
+}
+
+vx_object_t* render3(int above, Arm_t* arm){
+	vx_object_t *block3 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
+				vxo_mat_translate3(arm->totalxshift-sin(servo_positions[1])*arm->block3size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block3size/2.0*cos(servo_positions[1]) + arm->totalyshift, arm->totalzshift + arm->block3size/2.0*sin(servo_positions[0])*sin(servo_positions[1])),
+				vxo_mat_rotate_y(servo_positions[0]),
+				vxo_mat_rotate_z(servo_positions[1]),
+				vxo_mat_scale3(3, arm->block3size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+
+	arm->totalangle += servo_positions[1];
+	arm->totalxshift -= arm->block3size*sin(arm->totalangle)*cos(servo_positions[0]);
+	arm->totalzshift += arm->block3size*sin(servo_positions[0])*sin(servo_positions[1]);
+	arm->totalsize += arm->block3size*cos(arm->totalangle);
+	return block3;
+}
+
+vx_object_t* render4(int above, Arm_t* arm){
+	vx_object_t *block4 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
+				vxo_mat_translate3(arm->totalxshift -sin(arm->totalangle + servo_positions[2])*arm->block4size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block4size/2.0*cos(arm->totalangle + servo_positions[2]) + arm->totalyshift, arm->totalzshift + arm->block4size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[2])),
+				vxo_mat_rotate_y(servo_positions[0]),
+				vxo_mat_rotate_z(arm->totalangle + servo_positions[2]),
+				vxo_mat_scale3(3, arm->block4size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+
+	arm->totalangle += servo_positions[2];
+	arm->totalxshift -= arm->block4size*sin(arm->totalangle)*cos(servo_positions[0]);
+	arm->totalzshift += arm->block4size*sin(servo_positions[0])*sin(arm->totalangle);
+	arm->totalsize += arm->block4size*cos(arm->totalangle);
+	return block4;
+}
+
+vx_object_t* render5(int above, Arm_t* arm){
+	vx_object_t *block5 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
+				vxo_mat_translate3(arm->totalxshift -sin(arm->totalangle + servo_positions[3])*arm->block5size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block5size/2.0*cos(arm->totalangle + servo_positions[3]) + arm->totalyshift, arm->totalzshift + arm->block5size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[3])),
+				vxo_mat_rotate_y(servo_positions[0]),
+				vxo_mat_rotate_z(arm->totalangle + servo_positions[3]),
+				vxo_mat_scale3(3, arm->block5size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+
+	arm->totalangle += servo_positions[3];
+	arm->totalxshift -= arm->block5size*sin(arm->totalangle)*cos(servo_positions[0]);
+	arm->totalzshift += arm->block5size*sin(servo_positions[0])*sin(arm->totalangle);
+	arm->totalsize += arm->block5size*cos(arm->totalangle);
+	return block5;
+}
+
+vx_object_t* render6(int above, Arm_t* arm){
+	vx_object_t *block6 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2.0),
+				vxo_mat_translate3(cos(servo_positions[0])*cos(arm->totalangle) + arm->totalxshift -sin(arm->totalangle)*arm->block6size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block6size/2.0*cos(arm->totalangle) + sin(arm->totalangle) + arm->totalyshift, arm->totalzshift - sin(servo_positions[0])*cos(arm->totalangle) + arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle)),
+				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(arm->totalangle)),
+				//vxo_mat_rotate_x(servo_positions[4]*sin(arm->totalangle)),
+				vxo_mat_rotate_z(arm->totalangle),
+				vxo_mat_scale3(1, arm->block6size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+	return block6;
+}
+
+vx_object_t* renderClaw(int above, Arm_t* arm){
+	vx_object_t *claw = vxo_chain(vxo_mat_rotate_x(above*M_PI/2.0),
+				vxo_mat_translate3(-cos(servo_positions[0])*cos(arm->totalangle) + arm->totalxshift - cos(arm->totalangle-servo_positions[5])*arm->block6size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block6size/2.0*cos(arm->totalangle - servo_positions[5] + M_PI/2.0) - sin(arm->totalangle) + arm->totalyshift, arm->totalzshift + sin(servo_positions[0])*cos(arm->totalangle) + arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle - servo_positions[5] + M_PI/2.0)),
+				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(arm->totalangle)),
+				//vxo_mat_rotate_x(servo_positions[4]*sin(arm->totalangle)),
+				vxo_mat_rotate_z(arm->totalangle - servo_positions[5]),
+				vxo_mat_scale3(arm->block6size, 1, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+	return claw;
+}
+
+void render_elements(int above, vx_world_t* world){
+	Arm_t* arm = calloc(1, sizeof(Arm_t));;
+
+	arm->block1size = 7;
+	arm->block2size = 4;
+	arm->block3size = 10;
+	arm->block4size = 10;
+	arm->block5size = 10;
+	arm->block6size = 8;
+	arm->color[0] = 0.0f;
+	arm->color[1] = 0.0f;
+	arm->color[2] = 1.0f;
+	arm->color[3] = 1.0f;
+	arm->totalsize = arm->block1size;
+	arm->totalxshift = 0;
+	arm->totalzshift = arm_zoom;
+	arm->totalyshift = 0;
+	arm->totalangle = 0;	
+
+	if(above){
+		arm->totalzshift -= 25;
+	}else{
+		arm->totalyshift = -18;
+	}
+
+	/*if(above){
+		vx_buffer_add_back(vx_world_get_buffer(world, "block1"), vxo_pix_coords(VX_ORIGIN_CENTER, render1(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block2"), vxo_pix_coords(VX_ORIGIN_CENTER, render2(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block3"), vxo_pix_coords(VX_ORIGIN_CENTER, render3(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block4"), vxo_pix_coords(VX_ORIGIN_CENTER, render4(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block5"), vxo_pix_coords(VX_ORIGIN_CENTER, render5(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block6"), vxo_pix_coords(VX_ORIGIN_CENTER, render6(above, arm)));
+		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), vxo_pix_coords(VX_ORIGIN_CENTER, renderClaw(above, arm)));	
+	}else{*/
+		vx_buffer_add_back(vx_world_get_buffer(world, "block1"), render1(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block2"), render2(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block3"), render3(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block4"), render4(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block5"), render5(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "block6"), render6(above, arm));
+		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
+	//}
+
+	vx_buffer_swap(vx_world_get_buffer(world, "block1"));
+	vx_buffer_swap(vx_world_get_buffer(world, "block2"));
+	vx_buffer_swap(vx_world_get_buffer(world, "block3"));
+	vx_buffer_swap(vx_world_get_buffer(world, "block4"));
+	vx_buffer_swap(vx_world_get_buffer(world, "block5"));
+	vx_buffer_swap(vx_world_get_buffer(world, "block6"));
+	vx_buffer_swap(vx_world_get_buffer(world, "claw"));
+}
+
+void* render_above(void* data){
 	gstate_t *gstate = data;
 
 	while(!zhash_size(gstate->layers)){
@@ -255,143 +395,137 @@ void* render_arm(void* data){
 	vx_event_handler_t *my_event_handler = malloc(sizeof(vx_event_handler_t));
 	my_event_handler->dispatch_order = 0; // Lower number here means that you get higher priority in processing events.
 	my_event_handler->impl = event_state;
+	my_event_handler->destroy = eh_destroy;
 	my_event_handler->mouse_event = custom_mouse_event;
+
+	vx_world_t *new_world = vx_world_create();
+	vx_layer_t *layer = vx_layer_create(new_world);
+	
+	zhash_iterator_t it;
+	zhash_iterator_init(gstate->layers, &it);
+	vx_display_t *key;
+	vx_layer_t *value;
+
+	zhash_iterator_next(&it, &key, &value);
+	vx_layer_set_display(layer, key);
+
+	zhash_put(gstate->layers, &key, &layer, NULL, NULL);
+
+	float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	float position[4] = {0.0f, 0.5f, 0.5f, 0.5f};
+
+	//while(zhash_iterator_next(&it, &key, &value)){
+		vx_layer_set_background_color(layer, black);
+		vx_layer_set_viewport_rel(layer, position);
+		vx_layer_add_event_handler(layer, my_event_handler);
+	//}
+
+	/*vx_buffer_add_back(vx_world_get_buffer(gstate->world, "grid"),  vxo_chain(vxo_mat_translate3(0,0,-2*arm_zoom),
+		vxo_mat_scale3(1.5, 1.5, 1),
+		vxo_grid()));
+	vx_buffer_swap(vx_world_get_buffer(gstate->world, "grid"));*/
+
+	while(gstate->running){
+		render_elements(1, new_world);
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "line"),
+			vxo_pix_coords(VX_ORIGIN_BOTTOM,
+			vxo_chain(vxo_mat_scale3(DISPLAY_W/2.0, 1, 1),
+			vxo_rect(vxo_mesh_style(vx_green),
+			vxo_lines_style(vx_green, 2.0f),
+			vxo_points_style(vx_green, 2.0f)))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
+
+		usleep(25000);
+	}
+	vx_layer_destroy(layer);
+	vx_world_destroy(new_world);
+	return NULL;
+}
+
+void* render_view(void* data){
+	gstate_t *gstate = data;
+
+	while(!zhash_size(gstate->layers)){
+		usleep(1000);
+	}
+
+	vx_world_t *new_world = vx_world_create();
+	vx_layer_t *layer = vx_layer_create(new_world);
 
 	zhash_iterator_t it;
 	zhash_iterator_init(gstate->layers, &it);
 	vx_display_t *key;
 	vx_layer_t *value;
 
-	while(zhash_iterator_next(&it, &key, &value) && view_above){
-		vx_layer_add_event_handler(value, my_event_handler);
-	}
+	zhash_iterator_next(&it, &key, &value);
+	vx_layer_set_display(layer, key);
+	zhash_put(gstate->layers, &key, &layer, NULL, NULL);
 
-	float blue[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+	float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	float position[4] = {0.0f, 0.0f, 0.5f, 0.5f};
 
-	vx_buffer_add_back(vx_world_get_buffer(gstate->world, "grid"),  vxo_chain(vxo_mat_translate3(0,0,-2*arm_zoom),
+	vx_layer_set_background_color(layer, black);
+	vx_layer_set_viewport_rel(layer, position);
+
+	/*vx_buffer_add_back(vx_world_get_buffer(gstate->world, "grid"),  vxo_chain(vxo_mat_translate3(0,0,-2*arm_zoom),
 		vxo_mat_scale3(1.5, 1.5, 1),
 		vxo_grid()));
-	vx_buffer_swap(vx_world_get_buffer(gstate->world, "grid"));
+	vx_buffer_swap(vx_world_get_buffer(gstate->world, "grid"));*/
 
 	while(gstate->running){
-		double block1size = 7;
-		double block2size = 4;
-		double block3size = 10;
-		double block4size = 10;
-		double block5size = 10;
-		double block6size = 8;
-		double totalsize = block1size;
-		double totalxshift = 0;
-		double totalzshift = arm_zoom;
-		double totalyshift = 0;
-		double totalangle = 0;	
-
-		if(view_above){
-			totalzshift -= 25;
-		}else{
-			totalyshift = -25;
-		}
-
+		render_elements(0, new_world);
 		
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "line"),
+			vxo_pix_coords(VX_ORIGIN_TOP,
+			vxo_chain(vxo_mat_scale3(DISPLAY_W/2.0, 1, 1),
+			vxo_rect(vxo_mesh_style(vx_green),
+			vxo_lines_style(vx_green, 2.0f),
+			vxo_points_style(vx_green, 2.0f)))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
 
-		vx_object_t *block1 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
-				vxo_mat_translate3(totalxshift, block1size/2.0 + totalyshift, totalzshift),
-				vxo_mat_rotate_y(M_PI/2.0),
-				vxo_mat_scale3(3, block1size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block1"), block1);
+		usleep(25000);
+	}
+	vx_layer_destroy(layer);
+	vx_world_destroy(new_world);
+	return NULL;
+}
 
-		vx_object_t *block2 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
-				vxo_mat_translate3(totalxshift, totalsize + block2size/2.0 + totalyshift, totalzshift),
-				vxo_mat_rotate_y(servo_positions[0]),
-				vxo_mat_scale3(3, block2size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block2"), block2);
-		
-		totalsize += block2size;
-	
-		vx_object_t *block3 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
-				vxo_mat_translate3(totalxshift-sin(servo_positions[1])*block3size/2.0*cos(servo_positions[0]), totalsize + block3size/2.0*cos(servo_positions[1]) + totalyshift, totalzshift + block3size/2.0*sin(servo_positions[0])*sin(servo_positions[1])),
-				vxo_mat_rotate_y(servo_positions[0]),
-				vxo_mat_rotate_z(servo_positions[1]),
-				vxo_mat_scale3(3, block3size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block3"), block3);
+void* render_status(void* data){
+	gstate_t *gstate = data;
 
-		totalangle += servo_positions[1];
-		totalxshift -= block3size*sin(totalangle)*cos(servo_positions[0]);
-		totalzshift += block3size*sin(servo_positions[0])*sin(servo_positions[1]);
-		totalsize += block3size*cos(totalangle);
+	while(!zhash_size(gstate->layers)){
+		usleep(1000);
+	}
 
-		vx_object_t *block4 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
-				vxo_mat_translate3(totalxshift -sin(totalangle + servo_positions[2])*block4size/2.0*cos(servo_positions[0]), totalsize + block4size/2.0*cos(totalangle + servo_positions[2]) + totalyshift, totalzshift + block4size/2.0*sin(servo_positions[0])*sin(totalangle + servo_positions[2])),
-				vxo_mat_rotate_y(servo_positions[0]),
-				vxo_mat_rotate_z(totalangle + servo_positions[2]),
-				vxo_mat_scale3(3, block4size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block4"), block4);
+	vx_world_t *new_world = vx_world_create();
+	vx_layer_t *layer = vx_layer_create(new_world);
 
-		totalangle += servo_positions[2];
-		totalxshift -= block4size*sin(totalangle)*cos(servo_positions[0]);
-		totalzshift += block4size*sin(servo_positions[0])*sin(totalangle);
-		totalsize += block4size*cos(totalangle);
+	zhash_iterator_t it;
+	zhash_iterator_init(gstate->layers, &it);
+	vx_display_t *key;
+	vx_layer_t *value;
 
-		vx_object_t *block5 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2),
-				vxo_mat_translate3(totalxshift -sin(totalangle + servo_positions[3])*block5size/2.0*cos(servo_positions[0]), totalsize + block5size/2.0*cos(totalangle + servo_positions[3]) + totalyshift, totalzshift + block5size/2.0*sin(servo_positions[0])*sin(totalangle + servo_positions[3])),
-				vxo_mat_rotate_y(servo_positions[0]),
-				vxo_mat_rotate_z(totalangle + servo_positions[3]),
-				vxo_mat_scale3(3, block5size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block5"), block5);
+	zhash_iterator_next(&it, &key, &value);
+	vx_layer_set_display(layer, key);
+	zhash_put(gstate->layers, &key, &layer, NULL, NULL);
 
-		totalangle += servo_positions[3];
-		totalxshift -= block5size*sin(totalangle)*cos(servo_positions[0]);
-		totalzshift += block5size*sin(servo_positions[0])*sin(totalangle);
-		totalsize += block5size*cos(totalangle);
+	float position[4] = {0.5f, 0.0f, 0.5f, 0.5f};
 
-		vx_object_t *block6 = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2.0),
-				vxo_mat_translate3(cos(servo_positions[0])*cos(totalangle) + totalxshift -sin(totalangle)*block6size/2.0*cos(servo_positions[0]), totalsize + block6size/2.0*cos(totalangle) + sin(totalangle) + totalyshift, totalzshift - sin(servo_positions[0])*cos(totalangle) + block6size/2.0*sin(servo_positions[0])*sin(totalangle)),
-				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(totalangle)),
-				//vxo_mat_rotate_x(servo_positions[4]*sin(totalangle)),
-				vxo_mat_rotate_z(totalangle),
-				vxo_mat_scale3(1, block6size, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "block6"), block6);
+	vx_layer_set_viewport_rel(layer, position);
 
-		vx_object_t *claw = vxo_chain(vxo_mat_rotate_x(view_above*M_PI/2.0),
-				vxo_mat_translate3(-cos(servo_positions[0])*cos(totalangle) + totalxshift - cos(totalangle-servo_positions[5])*block6size/2.0*cos(servo_positions[0]), totalsize + block6size/2.0*cos(totalangle - servo_positions[5] + M_PI/2.0) - sin(totalangle) + totalyshift, totalzshift + sin(servo_positions[0])*cos(totalangle) + block6size/2.0*sin(servo_positions[0])*sin(totalangle - servo_positions[5] + M_PI/2.0)),
-				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(totalangle)),
-				//vxo_mat_rotate_x(servo_positions[4]*sin(totalangle)),
-				vxo_mat_rotate_z(totalangle - servo_positions[5]),
-				vxo_mat_scale3(block6size, 1, 5),
-				vxo_box(vxo_mesh_style(blue),
-				vxo_lines_style(vx_red, 2.0f)));
-		vx_buffer_add_back(vx_world_get_buffer(gstate->world, "claw"), claw);	
-
-
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block1"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block2"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block3"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block4"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block5"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "block6"));
-		vx_buffer_swap(vx_world_get_buffer(gstate->world, "claw"));
-	
+	while(gstate->running){		
 		char statusText[128] = "";
 		
-		sprintf(statusText, "Servo angles:\n0[%f] 1[%f] 2[%f]\n3[%f] 4[%f] 5[%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
+		sprintf(statusText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
 		
-		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
-	vx_buffer_add_back(vx_world_get_buffer(gstate->world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));
-	vx_buffer_swap(vx_world_get_buffer(gstate->world, "text"));
-	usleep(5000);
+		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
+		usleep(25000);
 	}
+	vx_layer_destroy(layer);
+	vx_world_destroy(new_world);
 	return NULL;
 }
 
@@ -425,7 +559,7 @@ void* gui_create(int argc, char **argv){
         exit(1);
     }
 
-	if(!strcmp(getopt_get_string(gstate->gopt, "mode"),"click")){
+	/*if(!strcmp(getopt_get_string(gstate->gopt, "mode"),"click")){
 		view_above = 1;
 	} else if(!strcmp(getopt_get_string(gstate->gopt, "mode"),"view")){
 		view_above = 0;
@@ -434,7 +568,7 @@ void* gui_create(int argc, char **argv){
 	} else{
 		printf("Argument --mode|-m expected. Options are 'click', 'view', or 'camera'\n");
 		exit(1);
-	}
+	}*/
 
 	lcm = lcm_create(NULL);
 	gui_channel = getopt_get_string(gstate->gopt, "gui-channel");
@@ -472,12 +606,14 @@ void* gui_create(int argc, char **argv){
     vx_remote_display_source_t *cxn = vx_remote_display_source_create(&gstate->vxapp);
 	
 	parameter_gui_t *pg = pg_create();
-	if(view_above == 2){
-    	pthread_create(&gstate->animate_thread, NULL, render_loop, gstate);
-		pg_add_double_slider(pg, "sl1", "Zoom Camera", 0, 800, camera_zoom);
-	} else{
-		pthread_create(&gstate->animate_thread, NULL, render_arm, gstate);
-	}
+
+	pg_add_double_slider(pg, "sl1", "Zoom Camera", 0, 800, camera_zoom);
+	pthread_create(&gstate->animate_thread, NULL, render_camera, gstate);
+	pthread_create(&gstate->animate_thread, NULL, render_view, gstate);
+	pthread_create(&gstate->animate_thread, NULL, render_above, gstate);
+	pthread_create(&gstate->animate_thread, NULL, render_status, gstate);
+
+	
 	
     // Initialize a parameter gui
    
@@ -503,7 +639,7 @@ void* gui_create(int argc, char **argv){
 	
     gstate->pg = pg;
 
-    eecs467_gui_run(&gstate->vxapp, gstate->pg, 800, 600);
+    eecs467_gui_run(&gstate->vxapp, gstate->pg, DISPLAY_W, DISPLAY_H);
     // Quit when GTK closes
     gstate->running = 0;
 

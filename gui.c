@@ -163,6 +163,7 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
     int diff_button = mouse->button_mask ^ last_mouse.button_mask;
     //int button_down = diff_button & mouse->button_mask; // which button(s) just got pressed?
     int button_up = diff_button & last_mouse.button_mask; // which button(s) just got released?
+    double man_point[3];
 	if(button_up){
 		dynamixel_status_list_t stats;
 		stats.len = 1;
@@ -174,6 +175,12 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].temperature = DISPLAY_W;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
 		printf("clicked x:%f, clicked y:%f\n", mouse->x, mouse->y);
+		printf("layer: %f\n", vl);
+		vx_ray3_t ray;
+		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
+		vx_ray3_intersect_xy(&ray, 0.0, man_point);
+		printf("manX: %f, manY: %f, manZ: %f", man_point[0],
+			man_point[1], man_point[2]);
 		//Clicked in camera area
 		pthread_mutex_lock(&sample_mutex);
 		if(mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
@@ -295,6 +302,7 @@ void* render_camera(void *data)
 
 		num_balls = blob_detection(im, balls);
 		transform_balls();
+		/*
 		if(num_balls) {
 		    printf("%d Balls\n", num_balls);
 		    for(i = 0; i < num_balls; ++i) {
@@ -304,6 +312,7 @@ void* render_camera(void *data)
 				balls[i].num_px);
 		    }
 		}
+		*/
 
                 if (im != NULL) {
 

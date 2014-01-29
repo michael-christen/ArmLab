@@ -159,6 +159,7 @@ void closeClaw(state_t* state, double theta, double r, double height){
 }
 
 void pickUpBall(state_t* state, double theta, double r){
+    printf("pickupBall\n");
 	pthread_mutex_lock(&sample_mutex);
 	sendCommand(state, theta, r, 4, 1, .3, .5);
 	printf("1\n");
@@ -186,22 +187,26 @@ static void lcm_delegator( const lcm_recv_buf_t *rbuf,
 	/*??? instant segfault
 	  *s_msg = *msg
 	  */
-        status_msg = msg;
+        //status_msg = msg;
+	status_msg = dynamixel_status_list_t_copy(msg);
 	status_rbuf = rbuf;
         pthread_cond_signal(&status_cv);
 	//Keeps these threads open even after function leaves
-	pthread_cond_wait(&status_exit_cv, &status_mutex);
+	//pthread_cond_wait(&status_exit_cv, &status_mutex);
         pthread_mutex_unlock(&status_mutex);
     } else if(!strcmp(channel, state->gui_channel)) {
         pthread_mutex_lock(&command_mutex);
-	command_msg = msg;
+	command_msg = dynamixel_status_list_t_copy(msg);
+	printf("Click x: %f, display_w: %f\n", msg->statuses[0].speed,
+		msg->statuses[0].temperature);
+	//command_msg = msg;
 	command_rbuf = rbuf;
         pthread_cond_signal(&command_cv);
 	//Keeps these threads open even after function leaves
-	pthread_cond_wait(&command_exit_cv, &command_mutex);
+	//pthread_cond_wait(&command_exit_cv, &command_mutex);
         pthread_mutex_unlock(&command_mutex);
     } else {
-        printf("Ch: %s\n", channel);
+    //    printf("Ch: %s\n", channel);
     }
 }
 
@@ -263,7 +268,6 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 	y = stat.load;
 	display_h = stat.voltage - 50;
 	display_w = stat.temperature;
-	printf("clicked_handled\n");
 
 	if(x < display_w/2.0){
 		//Bird's-eye view
@@ -284,6 +288,7 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 			theta -= M_PI;
 		}
 		//double height = 4;
+		printf("r: %f\n", r);
 
 		if(r < 16.0){
 			//sendCommand(state, theta, r, height, 2, .1, .4);
@@ -307,7 +312,7 @@ void* commandListener(void *data){
 	    pthread_cond_wait(&command_cv, &command_mutex);
 	    printf("... handling command\n");
 	    click_handler(command_rbuf, command_msg, state);
-	    pthread_cond_signal(&command_exit_cv);
+	    //pthread_cond_signal(&command_exit_cv);
 	    pthread_mutex_unlock(&command_mutex);
 	}
 
@@ -318,7 +323,7 @@ void status_handler(const lcm_recv_buf_t *rbuf,
                            const dynamixel_status_list_t *msg,
                            void *user)
 {
-     printf("Status handler\n");
+     //printf("Status handler\n");
 	int moving = 0;
 	if(armIsMoving()){
 		moving = 1;
@@ -329,16 +334,15 @@ void status_handler(const lcm_recv_buf_t *rbuf,
         dynamixel_status_t stat = msg->statuses[id];
 		position_radians[id] = stat.position_radians;
 		cur_speeds[id] = stat.speed;
-        printf("[id %02d]=%3.3f ",id, stat.speed);
+        //printf("[id %02d]=%3.3f ",id, stat.speed);
     }
 	pthread_mutex_lock(&sample_mutex);
-	printf("Hey\n");
+	//printf("Hey\n");
 	if(moving && !armIsMoving()){
 		printf("signaling\n");
 		pthread_cond_signal(&sample_cv);
 	}
 	pthread_mutex_unlock(&sample_mutex);
-    printf("\n");
 
 	gui_update_servo_pos(position_radians);
 }
@@ -352,9 +356,9 @@ void* statusListener(void *data){
 	while(1) {
 	    pthread_mutex_lock(&status_mutex);
 	    pthread_cond_wait(&status_cv, &status_mutex);
-            printf("..handling status\n");
+            //printf("..handling status\n");
 	    status_handler(status_rbuf, status_msg, state);
-	    pthread_cond_signal(&status_exit_cv);
+	    //pthread_cond_signal(&status_exit_cv);
 	    pthread_mutex_unlock(&status_mutex);
 	}
 
@@ -480,7 +484,7 @@ int main(int argc, char **argv)
 	//state->command_mail_channel = getopt_get_string(gopt, "command-mail-channel");
     state->status_channel = getopt_get_string(gopt, "status-channel");
     state->lcm_channel = "lcm-channel";
-printf("Status_ch: %s\n",state->status_channel);
+    printf("Status_ch: %s\n",state->status_channel);
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
 
 	//pthread_create(&state->command_mail_thread, NULL, commandListener, state);

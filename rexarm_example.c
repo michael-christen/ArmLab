@@ -59,13 +59,13 @@ pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
 
 pthread_mutex_t command_mutex;
-pthread_cond_t command_cv;
+pthread_cond_t command_cv, command_exit_cv;
 
 lcm_recv_buf_t *command_rbuf, *status_rbuf;
 dynamixel_status_list_t *command_msg, *status_msg;
 
 pthread_mutex_t status_mutex;
-pthread_cond_t status_cv;
+pthread_cond_t status_cv, status_exit_cv;
 
 static int64_t utime_now()
 {
@@ -183,21 +183,22 @@ static void lcm_delegator( const lcm_recv_buf_t *rbuf,
     state_t* state = user;
     if(!strcmp(channel, state->status_channel)) {
         pthread_mutex_lock(&status_mutex);
-        status_msg = malloc(sizeof(msg));
-        status_rbuf= malloc(sizeof(rbuf));
-        *status_msg = *msg;
-	*status_rbuf = *rbuf;
-	printf("Status_delegated\n");
+	/*??? instant segfault
+	  *s_msg = *msg
+	  */
+        status_msg = msg;
+	status_rbuf = rbuf;
         pthread_cond_signal(&status_cv);
+	//Keeps these threads open even after function leaves
+	pthread_cond_wait(&status_exit_cv, &status_mutex);
         pthread_mutex_unlock(&status_mutex);
     } else if(!strcmp(channel, state->gui_channel)) {
         pthread_mutex_lock(&command_mutex);
-        command_msg = malloc(sizeof(msg));
-        command_rbuf= malloc(sizeof(rbuf));
-	*command_msg = *msg;
-	*command_rbuf = *rbuf;
-	printf("Command_delegated\n");
+	command_msg = msg;
+	command_rbuf = rbuf;
         pthread_cond_signal(&command_cv);
+	//Keeps these threads open even after function leaves
+	pthread_cond_wait(&command_exit_cv, &command_mutex);
         pthread_mutex_unlock(&command_mutex);
     } else {
         printf("Ch: %s\n", channel);
@@ -304,11 +305,10 @@ void* commandListener(void *data){
 	while(1) {
 	    pthread_mutex_lock(&command_mutex);
 	    pthread_cond_wait(&command_cv, &command_mutex);
+	    printf("... handling command\n");
 	    click_handler(command_rbuf, command_msg, state);
-	    free(command_rbuf);
-            free(command_msg);
+	    pthread_cond_signal(&command_exit_cv);
 	    pthread_mutex_unlock(&command_mutex);
-
 	}
 
 	return NULL;
@@ -352,10 +352,9 @@ void* statusListener(void *data){
 	while(1) {
 	    pthread_mutex_lock(&status_mutex);
 	    pthread_cond_wait(&status_cv, &status_mutex);
-            printf("..handling status");
+            printf("..handling status\n");
 	    status_handler(status_rbuf, status_msg, state);
-	    free(status_rbuf);
-	    free(status_msg);
+	    pthread_cond_signal(&status_exit_cv);
 	    pthread_mutex_unlock(&status_mutex);
 	}
 

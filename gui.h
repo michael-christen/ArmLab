@@ -7,6 +7,8 @@
 #include "../vx/vx_event.h"
 #include "../vx/vx_event_handler.h"
 
+#include "../common/matd.h"
+
 #include <lcm/lcm.h>
 #include "lcmtypes/dynamixel_command_list_t.h"
 #include "lcmtypes/dynamixel_command_t.h"
@@ -14,6 +16,8 @@
 #include "lcmtypes/dynamixel_status_t.h"
 
 #include "blob_detection.h"
+
+#define NUM_SAMPLES_FOR_ISCALING 8
 
 typedef struct gstate gstate_t;
 

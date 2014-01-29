@@ -36,6 +36,70 @@ const char *gui_channel;
 ball_t balls[MAX_NUM_BALLS];
 int num_balls;
 
+double scalingFactors[6] = {1,0,0,0,1,0};
+//px, py, 1, 0,   0, 0
+//0,  0 , 0, px, py, 1
+double samples[12*NUM_SAMPLES_FOR_ISCALING];
+int numSamples = 0;
+pthread_mutex_t sample_mutex;
+pthread_cond_t sample_cv;
+
+void* initScalingFactors(void *data) {
+    int i;
+    //X, Y positions for calibration
+    double positions[2*NUM_SAMPLES_FOR_ISCALING] = {
+	-0.3, 0.3,
+	 0  , 0.3,
+	 0.3, 0.3,
+	-0.3,   0,
+	 0.3,   0,
+	-0.3,-0.3,
+	 0  ,-0.3,
+	 0.3,-0.3 
+    };
+    pthread_mutex_lock(&sample_mutex);
+
+    pthread_cond_wait(&sample_cv, &sample_mutex);
+    printf("\nInitializing Scaling Factors\n");
+    //px, py, 1, 0,   0, 0
+    //0,  0 , 0, px, py, 1
+    //Samples
+    matd_t *sample_mat = matd_create_data(2*NUM_SAMPLES_FOR_ISCALING, 6, samples);
+
+    pthread_mutex_unlock(&sample_mutex);
+    //Positions
+    matd_t *pos_mat = matd_create_data(2*NUM_SAMPLES_FOR_ISCALING, 1, positions);
+    //x = inv(trans(A)*A)*trans(A)*b
+    //x = 
+    //matd_t * sol_mat = matd_op("(A' * A)^-1 * A' * b", sample_mat, pos_mat);
+    matd_t *trans_mat = matd_transpose(sample_mat);
+    matd_t *temp_mat = matd_multiply(trans_mat, sample_mat);
+    matd_print(temp_mat," %lf ");
+    //???This is breaking
+    matd_t *temp2_mat = matd_inverse(temp_mat);
+    
+    matd_destroy(temp_mat);
+
+    printf("multiply\n");
+    temp_mat = matd_multiply(temp2_mat, trans_mat);
+
+    matd_destroy(temp2_mat);
+
+    temp2_mat = matd_multiply(temp_mat, pos_mat);
+    
+    for(i = 0; i < 6; ++i) {
+	scalingFactors[i] = matd_get(temp2_mat,i,0);
+    }
+
+    //Clean up
+    matd_destroy(sample_mat);
+    matd_destroy(pos_mat);
+    matd_destroy(temp2_mat);
+    matd_destroy(temp_mat);
+    matd_destroy(trans_mat);
+    return NULL;
+}
+
 void gui_update_servo_pos(double servo_pos[]){
 	int i;
 	for(i = 0; i < NUM_SERVOS ;i++){
@@ -109,6 +173,22 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].temperature = DISPLAY_W;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
 		printf("clicked x:%f, clicked y:%f\n", mouse->x, mouse->y);
+		//Clicked in camera area
+		pthread_mutex_lock(&sample_mutex);
+		if(mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
+		    //???Need to convert this to picture pixels 
+		    samples[numSamples*12] = samples[numSamples*12+9] = mouse->x;
+		    samples[numSamples*12+1] = samples[numSamples*12+10] = mouse->y;
+		    samples[numSamples*12+2] = samples[numSamples*12+11] = 1;
+		    samples[numSamples*12+3] = samples[numSamples*12+6] = 
+			samples[numSamples*12+4] = samples[numSamples*12+7] =
+			samples[numSamples*12+5] = samples[numSamples*12+8] = 0;
+		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
+			pthread_cond_signal(&sample_cv);
+		    }
+		    printf("NumSamples: %d", numSamples);
+		}
+		pthread_mutex_unlock(&sample_mutex);
 	}
 
     // Store the last mouse click
@@ -122,6 +202,20 @@ static void eh_destroy(vx_event_handler_t * vh)
 {
     free(vh->impl);
     free(vh);
+}
+
+void transform_balls() {
+    int i;
+    for(i = 0; i < num_balls; ++i) {
+	balls[i].x = 
+	    scalingFactors[0]*balls[i].x +
+	    scalingFactors[1]*balls[i].y +
+	    scalingFactors[2];
+	balls[i].y = 
+	    scalingFactors[3]*balls[i].x +
+	    scalingFactors[4]*balls[i].y +
+	    scalingFactors[5];
+    }
 }
 
 // === Your code goes here ================================================
@@ -202,6 +296,7 @@ void* render_camera(void *data)
                 image_u32_t *im = image_convert_u32(frmd);
 
 		num_balls = blob_detection(im, balls);
+		transform_balls();
 		if(num_balls) {
 		    printf("%d Balls\n", num_balls);
 		    for(i = 0; i < num_balls; ++i) {
@@ -697,6 +792,7 @@ void* gui_create(int argc, char **argv){
 	pthread_create(&gstate->animate_thread, NULL, render_view, gstate);
 	pthread_create(&gstate->animate_thread, NULL, render_above, gstate);
 	pthread_create(&gstate->animate_thread, NULL, render_status, gstate);
+	pthread_create(&gstate->animate_thread, NULL, initScalingFactors, gstate);
 
 	
 	

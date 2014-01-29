@@ -39,7 +39,7 @@ int num_balls;
 double scalingFactors[6] = {1,0,0,0,1,0};
 //px, py, 1, 0,   0, 0
 //0,  0 , 0, px, py, 1
-double samples[12*NUM_SAMPLES_FOR_ISCALING];
+double samples[3*NUM_SAMPLES_FOR_ISCALING];
 int numSamples = 0;
 pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
@@ -64,11 +64,11 @@ void* initScalingFactors(void *data) {
     //px, py, 1, 0,   0, 0
     //0,  0 , 0, px, py, 1
     //Samples
-    matd_t *sample_mat = matd_create_data(2*NUM_SAMPLES_FOR_ISCALING, 6, samples);
+    matd_t *sample_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 3, samples);
 
     pthread_mutex_unlock(&sample_mutex);
     //Positions
-    matd_t *pos_mat = matd_create_data(2*NUM_SAMPLES_FOR_ISCALING, 1, positions);
+    matd_t *pos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, positions);
     //x = inv(trans(A)*A)*trans(A)*b
     //x = 
     //matd_t * sol_mat = matd_op("(A' * A)^-1 * A' * b", sample_mat, pos_mat);
@@ -80,7 +80,6 @@ void* initScalingFactors(void *data) {
     
     matd_destroy(temp_mat);
 
-    printf("multiply\n");
     temp_mat = matd_multiply(temp2_mat, trans_mat);
 
     matd_destroy(temp2_mat);
@@ -88,7 +87,8 @@ void* initScalingFactors(void *data) {
     temp2_mat = matd_multiply(temp_mat, pos_mat);
     
     for(i = 0; i < 6; ++i) {
-	scalingFactors[i] = matd_get(temp2_mat,i,0);
+	scalingFactors[i] = matd_get(temp2_mat,i/2,i%2);
+	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
     }
 
     //Clean up
@@ -97,6 +97,7 @@ void* initScalingFactors(void *data) {
     matd_destroy(temp2_mat);
     matd_destroy(temp_mat);
     matd_destroy(trans_mat);
+    printf("Scaling Factors initialized\n");
     return NULL;
 }
 
@@ -177,12 +178,9 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		pthread_mutex_lock(&sample_mutex);
 		if(mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
-		    samples[numSamples*12] = samples[numSamples*12+9] = mouse->x;
-		    samples[numSamples*12+1] = samples[numSamples*12+10] = mouse->y;
-		    samples[numSamples*12+2] = samples[numSamples*12+11] = 1;
-		    samples[numSamples*12+3] = samples[numSamples*12+6] = 
-			samples[numSamples*12+4] = samples[numSamples*12+7] =
-			samples[numSamples*12+5] = samples[numSamples*12+8] = 0;
+		    samples[numSamples*3] = mouse->x;
+		    samples[numSamples*3+1] = mouse->y;
+		    samples[numSamples*3+2] = 1;
 		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
 			pthread_cond_signal(&sample_cv);
 		    }

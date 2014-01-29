@@ -2,7 +2,6 @@
 
 
 
-int label_num;
 
 //Returns distance from test_px to match_px 
 unsigned int color_dist(uint32_t p1, uint32_t p2) {
@@ -86,15 +85,15 @@ void unionLabels(Set *links[MAX_NUM_BALLS], int n_labels[MAX_NUM_NEIGHBORS],
     }
 }
 
-void blob_detection(image_u32_t *im) {
+int blob_detection(image_u32_t *im, ball_t *final_balls) {
     //aka max #labels
     //list of links b/t labels
     //Array of Set *
     Set * links [MAX_NUM_BALLS];
     ball_t balls [MAX_NUM_BALLS];
-    ball_t final_balls [MAX_NUM_BALLS];
     int final_num_balls = 0;
     int num_links = 0;
+    int label_num;
     //each px has a label, 0 is default
     int labels [im->stride*im->height];
     //Immediate neighbor labels
@@ -152,18 +151,17 @@ void blob_detection(image_u32_t *im) {
     }
     //Filter out noise / not enough pixels
     for(i = 1; i < label_num; ++i) {
-	if(balls[i].num_px >= MIN_PXS) {
+	if(balls[i].num_px >= MIN_PXS &&
+		balls[i].num_px <= MAX_PXS) {
 	    final_balls[final_num_balls++] = balls[i];
 	}
     }
-    printf("%d Balls\n", final_num_balls);
-    if(final_num_balls) {
-	for(i = 0; i < final_num_balls; ++i) {
-	    if(final_balls[i].num_px >= MIN_PXS) {
-		printf("X: %f, Y: %f, pxs: %d\n",(final_balls[i].x+0.0)/ final_balls[i].num_px,
-			(final_balls[i].y+0.0)/final_balls[i].num_px,
-			final_balls[i].num_px);
-	    }
-	}
+    //Get coordinates, not sum
+    for(i = 0; i < final_num_balls; ++i) {
+	final_balls[i].x = (final_balls[i].x+0.0)/
+	    final_balls[i].num_px;
+	final_balls[i].y = (final_balls[i].y+0.0)/
+	    final_balls[i].num_px;
     }
+    return final_num_balls;
 }

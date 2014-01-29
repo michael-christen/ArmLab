@@ -9,13 +9,14 @@
 #define COLOR_THRESHOLD 100.0
 #define TEMPLATE_PX 0xff32ffff
 #define SHOW_PX 0xffe127ff
-#define MIN_PXS 50
+#define MIN_PXS 125
+#define MAX_PXS 400
 #define MAX_NUM_NEIGHBORS 8
 #define MAX_NUM_BALLS 1000
 
 typedef struct ball ball_t;
 struct ball {
-    int x, y;
+    double x, y;
     int num_px;
 };
 
@@ -39,7 +40,7 @@ int minLabel(int n_labels[], int len_labels);
 void unionLabels(Set *links[MAX_NUM_BALLS], int n_labels[MAX_NUM_NEIGHBORS],
 	int len_neighbors); 
 
-void blob_detection(image_u32_t *im);
+int blob_detection(image_u32_t *im, ball_t *final_balls);
 
 
 #endif

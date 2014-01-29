@@ -33,6 +33,9 @@ double servo_positions[NUM_SERVOS];
 lcm_t *lcm;
 const char *gui_channel;
 
+ball_t balls[MAX_NUM_BALLS];
+int num_balls;
+
 void gui_update_servo_pos(double servo_pos[]){
 	int i;
 	for(i = 0; i < NUM_SERVOS ;i++){
@@ -129,6 +132,7 @@ void* render_camera(void *data)
 {
     //int fps = 60;
     gstate_t *gstate = data;
+    int i;
 
 	while(!zhash_size(gstate->layers)){
 		usleep(1000);
@@ -197,7 +201,16 @@ void* render_camera(void *data)
                 // Handle frame
                 image_u32_t *im = image_convert_u32(frmd);
 
-		blob_detection(im);
+		num_balls = blob_detection(im, balls);
+		if(num_balls) {
+		    printf("%d Balls\n", num_balls);
+		    for(i = 0; i < num_balls; ++i) {
+			printf("X: %f, Y: %f, pxs: %d\n",
+				balls[i].x, 
+				balls[i].y, 
+				balls[i].num_px);
+		    }
+		}
 
                 if (im != NULL) {
 
@@ -359,6 +372,27 @@ vx_object_t* renderClaw(int above, Arm_t* arm){
 	return claw;
 }
 
+void renderBalls(int above, vx_world_t* world) {
+    num_balls = 2;
+    ball_t currentBall;
+    vx_object_t *ball;
+    int i;
+    for(i=0; i < num_balls; ++i) {
+	currentBall.x = 5 + i*5; 
+	currentBall.y = 5;
+	currentBall.num_px = 150;
+	balls[i] = currentBall; 
+	ball = vxo_chain(
+		vxo_mat_scale3(3,3,3),
+		vxo_mat_translate3(balls[i].x,balls[i].y,0),
+		vxo_sphere(vxo_mesh_style(vx_yellow))
+	);
+	vx_buffer_add_back(vx_world_get_buffer(world, "balls"), ball);	
+    }
+
+    vx_buffer_swap(vx_world_get_buffer(world, "balls"));
+}
+
 void render_elements(int above, vx_world_t* world){
 	Arm_t* arm = calloc(1, sizeof(Arm_t));;
 
@@ -409,6 +443,7 @@ void render_elements(int above, vx_world_t* world){
 	vx_buffer_swap(vx_world_get_buffer(world, "block5"));
 	vx_buffer_swap(vx_world_get_buffer(world, "block6"));
 	vx_buffer_swap(vx_world_get_buffer(world, "claw"));
+	renderBalls(above, world);
 }
 
 void* render_above(void* data){

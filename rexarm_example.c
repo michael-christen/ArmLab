@@ -54,6 +54,7 @@ struct state
 };
 
 double cur_speeds[NUM_SERVOS];
+double cur_positions[NUM_SERVOS];
 
 pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
@@ -61,7 +62,7 @@ pthread_cond_t sample_cv;
 pthread_mutex_t command_mutex;
 pthread_cond_t command_cv, command_exit_cv;
 
-lcm_recv_buf_t *command_rbuf, *status_rbuf;
+const lcm_recv_buf_t *command_rbuf, *status_rbuf;
 dynamixel_status_list_t *command_msg, *status_msg;
 
 pthread_mutex_t status_mutex;
@@ -69,6 +70,8 @@ pthread_cond_t status_cv, status_exit_cv;
 
 dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
+
+double UL_scaling_factor = 4.594595;
 
 static int64_t utime_now()
 {
@@ -79,7 +82,7 @@ static int64_t utime_now()
 
 void getServoAngles(double *servos, double theta, double r, double height) {
 	const double yDisp = ARM_L4 + height - ARM_L1;
-	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) + pow(yDisp, 2));
+	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
 
 	servos[0] = theta;
 
@@ -132,7 +135,10 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     cmds.len = NUM_SERVOS;
     cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
 
-	double positions[NUM_SERVOS] = {0, 0, 0, 0, 0, 0};
+	double positions[NUM_SERVOS];
+	for(int i = 0; i < NUM_SERVOS; i++){
+		positions[i] = cur_positions[i];
+	}
 
 	getServoAngles(positions, theta, r, height);
 
@@ -142,8 +148,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 		closeClawAngles(positions);
 	}	//Don't change claw if other value
 
-    // Send LCM commands to arm. Normally, you would update positions, etc,
-    // but here, we will just home the arm.
+    // Send LCM commands to arm.
     for (int id = 0; id < NUM_SERVOS; id++) {
         cmds.commands[id].utime = utime_now();
         cmds.commands[id].position_radians = positions[id];
@@ -168,15 +173,15 @@ void closeClaw(state_t* state, double theta, double r, double height){
 }
 
 void pickUpBall(state_t* state, double theta, double r){
-    printf("pickupBall\n");
-	printf("1\n");
-	sendCommand(state, theta, r, 4, 1, .3, .5);
-	printf("2\n");
+    //printf("pickupBall\n");
+	//printf("1\n");
+	sendCommand(state, theta, r, 8, 1, .7, .5);
+	//printf("2\n");
 	sendCommand(state, theta, r, 0, 1, .5, .5);
-	printf("3\n");
+	//printf("3\n");
 	sendCommand(state, theta, r, 0, 0, .7, .5);
-	printf("4\n");
-	sendCommand(state, theta, r, 4, 0, .5, .5);	
+	//printf("4\n");
+	sendCommand(state, theta, r, 8, 0, .7, .5);	
 }
 
 
@@ -201,8 +206,8 @@ static void lcm_delegator( const lcm_recv_buf_t *rbuf,
     } else if(!strcmp(channel, state->gui_channel)) {
         pthread_mutex_lock(&command_mutex);
 	command_msg = dynamixel_status_list_t_copy(msg);
-	printf("Click x: %f, display_w: %f\n", msg->statuses[0].speed,
-		msg->statuses[0].temperature);
+	//printf("Click x: %f, display_w: %f\n", msg->statuses[0].speed,
+		//msg->statuses[0].temperature);
 	//command_msg = msg;
 	command_rbuf = rbuf;
         pthread_cond_signal(&command_cv);
@@ -218,7 +223,7 @@ void* lcm_handle_loop(void *data)
 {
     state_t *state = data;
     //status_handler
-    printf("Status channel: %s\n",state->status_channel);
+    //printf("Status channel: %s\n",state->status_channel);
     dynamixel_status_list_t_subscribe(state->lcm,
                                       state->status_channel,
                                       lcm_delegator,
@@ -266,31 +271,22 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 
 	state_t* state = user;
 
-	double x, y, display_h, display_w;
+	double x, y, display_w;
 	dynamixel_status_t stat = msg->statuses[0];
 	x = stat.speed;
 	y = stat.load;
-	display_h = stat.voltage - 50;
 	display_w = stat.temperature;
 
 	if(x < display_w/2.0){
 		//Bird's-eye view
 
-		double origx = display_w/4.0;
-		double origy = 3*display_h/4.0;
+		double r = sqrt(pow(x, 2) + pow(y, 2));
+		double theta = atan(y/x);
 
-		double deltay = (y - origy)/5.0;
-		double deltax = (x - origx)/5.0;
-		deltay = y;
-		deltax = x;
-
-		double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
-		double theta = atan(deltay/deltax);
-
-		if(deltax < 0 && deltay > 0){
+		if(x < 0 && y > 0){
 			theta += M_PI;
 		}
-		if(deltax < 0 && deltay < 0){
+		if(x < 0 && y < 0){
 			theta -= M_PI;
 		}
 		//double height = 4;
@@ -316,7 +312,7 @@ void* commandListener(void *data){
 	while(1) {
 	    pthread_mutex_lock(&command_mutex);
 	    pthread_cond_wait(&command_cv, &command_mutex);
-	    printf("... handling command\n");
+	    //printf("... handling command\n");
 	    click_handler(command_rbuf, command_msg, state);
 	    pthread_mutex_unlock(&command_mutex);
 	}
@@ -339,6 +335,7 @@ void status_handler(const lcm_recv_buf_t *rbuf,
         dynamixel_status_t stat = msg->statuses[id];
 		position_radians[id] = stat.position_radians;
 		cur_speeds[id] = stat.speed;
+		cur_positions[id] = position_radians[id];
         //printf("[id %02d]=%3.3f ",id, stat.speed);
     }
 	pthread_mutex_lock(&sample_mutex);
@@ -347,7 +344,7 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	//movements
 	neverMoved = neverMoved || (moving && !armIsMoving());
 	if(neverMoved){
-		printf("signaling\n");
+		//printf("signaling\n");
 		pthread_cond_signal(&sample_cv);
 	}
 	pthread_mutex_unlock(&sample_mutex);

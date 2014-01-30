@@ -44,6 +44,9 @@ int numSamples = 0;
 pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
 
+int calib_cam = 0;	//Calibrating upper left quadrant
+double calib_positions[NUM_SERVOS] = {0, M_PI/2.0, 0, 0, 0, M_PI/2.0};
+
 void* initScalingFactors(void *data) {
     int i;
     //X, Y positions for calibration
@@ -106,8 +109,8 @@ void gui_update_servo_pos(double servo_pos[]){
 	for(i = 0; i < NUM_SERVOS ;i++){
 		servo_positions[i] = servo_pos[i];
 	}
+
 	servo_positions[0] += M_PI;
-	//servo_positions[4] -= M_PI/2.0;
 }
 
 // === Parameter listener =================================================
@@ -131,8 +134,9 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
        camera_zoom = pg_gi(pg, name);
     } else if (!strcmp("sl2", name)) {
        arm_zoom = pg_gi(pg, name);
-    } else if (!strcmp("cb1", name)){
+    } else if (!strcmp("but1", name)){
 		//camera_show = pg_gb(pg, name);
+		calib_cam = ~calib_cam;
 	} else {
         printf("%s changed\n", name);
     }
@@ -165,7 +169,7 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
     int button_up = diff_button & last_mouse.button_mask; // which button(s) just got released?
     double man_point[3];
 	if(button_up){
-	        vx_ray3_t ray;
+		vx_ray3_t ray;
 		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
 		vx_ray3_intersect_xy(&ray, 0.0, man_point);
 		printf("x: %f, man_x: %f\n", mouse->x, man_point[0]);
@@ -178,6 +182,12 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].load = man_point[1];
 		stats.statuses[0].voltage = DISPLAY_H;
 		stats.statuses[0].temperature = DISPLAY_W;
+		if(calib_cam){
+			stats.statuses[0].error_flags = 3;
+			calib_cam = 0;
+		}else{
+			stats.statuses[0].error_flags = 0;
+		}
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
 		pthread_mutex_lock(&sample_mutex);
 		//Clicked in camera area
@@ -230,7 +240,6 @@ void* render_camera(void *data)
 {
     //int fps = 60;
     gstate_t *gstate = data;
-    int i;
 
 	while(!zhash_size(gstate->layers)){
 		usleep(1000);
@@ -265,10 +274,8 @@ void* render_camera(void *data)
 	vx_layer_camera_fit2D(layer, lowLeft, upRight, 1); 
 
     // Set up the imagesource
-	printf("test1\n");
     image_source_t *isrc = image_source_open(gstate->url);
     printf("opening camera: %s", gstate->url);
-	printf("test2\n");
     if (isrc == NULL) {
         printf("Error opening device.\n");
     } else {
@@ -301,17 +308,17 @@ void* render_camera(void *data)
 
 		num_balls = blob_detection(im, balls);
 		transform_balls();
-		/*
-		if(num_balls) {
+		
+		/*if(num_balls) {
 		    printf("%d Balls\n", num_balls);
-		    for(i = 0; i < num_balls; ++i) {
+		    for(int i = 0; i < num_balls; ++i) {
 			printf("X: %f, Y: %f, pxs: %d\n",
 				balls[i].x, 
 				balls[i].y, 
 				balls[i].num_px);
 		    }
-		}
-		*/
+		}*/
+		
 
                 if (im != NULL) {
 
@@ -479,16 +486,17 @@ void renderBalls(int above, vx_world_t* world) {
     vx_object_t *ball;
     int i;
     for(i=0; i < num_balls; ++i) {
-	currentBall.x = 5 + i*5; 
-	currentBall.y = 5;
-	currentBall.num_px = 150;
-	balls[i] = currentBall; 
-	ball = vxo_chain(
-		vxo_mat_scale3(3,3,3),
-		vxo_mat_translate3(balls[i].x,balls[i].y,0),
-		vxo_sphere(vxo_mesh_style(vx_yellow))
-	);
-	vx_buffer_add_back(vx_world_get_buffer(world, "balls"), ball);	
+		currentBall.x = 5 + i*5; 
+		currentBall.y = 5;
+		currentBall.num_px = 150;
+		balls[i] = currentBall; 
+		ball = vxo_chain(
+			vxo_mat_rotate_x(above*M_PI/2.0),
+			vxo_mat_translate3(balls[i].x,15*~above + 33*above,balls[i].y),
+			vxo_mat_scale3(3,3,3),
+			vxo_sphere(vxo_mesh_style(vx_yellow))
+		);
+		vx_buffer_add_back(vx_world_get_buffer(world, "balls"), ball);	
     }
 
     vx_buffer_swap(vx_world_get_buffer(world, "balls"));
@@ -576,6 +584,7 @@ void* render_above(void* data){
 
 	float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 	float position[4] = {0.0f, 0.5f, 0.5f, 0.5f};
+	//float transparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 	//while(zhash_iterator_next(&it, &key, &value)){
 		vx_layer_set_background_color(layer, black);
@@ -609,13 +618,32 @@ void* render_above(void* data){
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
-			vxo_pix_coords(VX_ORIGIN_CENTER,
 			vxo_chain(vxo_mat_translate3(0, 0, -1),
 			vxo_mat_scale3(1, DISPLAY_H/2.0, 1),
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
-			vxo_points_style(vx_red, 2.0f)))));
+			vxo_points_style(vx_red, 2.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
+
+		/*if(calib_cam){
+			vx_buffer_add_back(vx_world_get_buffer(new_world, "circle"),
+				vxo_chain(vxo_mat_translate3(37, 0, 15),
+				vxo_mat_scale3(.5, .5, 1),
+				vxo_circle(vxo_mesh_style(vx_white),
+				vxo_lines_style(transparent, 2.0f))));
+			vx_buffer_swap(vx_world_get_buffer(new_world, "circle"));
+
+			char statusText[64] = "";
+		
+			sprintf(statusText, "<<#ffffff>>Click the white dot to calibrate");
+		
+			vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
+			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));
+			vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
+		}else{
+			vx_buffer_swap(vx_world_get_buffer(new_world, "circle"));
+			vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
+		}*/
 
 		usleep(25000);
 	}
@@ -777,7 +805,7 @@ void* gui_create(int argc, char **argv){
             return NULL;
         }
 	if(zarray_size(urls) >= 3) {
-	    zarray_get(urls, 2, &gstate->url);
+	    zarray_get(urls, 0, &gstate->url);	//2
 	}
 	else {
 	    zarray_get(urls, 0, &gstate->url);
@@ -812,14 +840,12 @@ void* gui_create(int argc, char **argv){
 	pg_add_double_slider(pg, "s5", "Hand", 0, M_PI, M_PI);*/
    /* pg_add_check_boxes(pg,
                        "cb1", "Camera", 1,
-                       NULL);
+                       NULL);*/
     pg_add_buttons(pg,
-                   "but1", "Button 1",
-                   "but2", "Button 2",
-                   "but3", "Button 3",
-                   NULL);*/
+                   "but1", "Calibrate Camera",
+                   NULL);
 
-    parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t*));
+    parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t));
     my_listener->impl = NULL;
     my_listener->param_changed = my_param_changed;
     pg_add_listener(pg, my_listener);

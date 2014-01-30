@@ -503,7 +503,7 @@ int main(int argc, char **argv)
     getopt_add_string(gopt, '\0', "command-channel", "ARM_COMMAND", "LCM command channel");
 	//getopt_add_string(gopt, '\0', "command-mail-channel","COMMAND_MAIL", "LCM command mail channel");
 	getopt_add_string(gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
-	getopt_add_string(gopt, 'm', "mode", "VIEW_MODE", "click | view | camera");
+	getopt_add_string(gopt, 'c', "camera", "", "laptop");
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
         getopt_do_usage(gopt);

@@ -618,11 +618,12 @@ void* render_above(void* data){
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
+			vxo_pix_coords(VX_ORIGIN_CENTER,
 			vxo_chain(vxo_mat_translate3(0, 0, -1),
 			vxo_mat_scale3(1, DISPLAY_H/2.0, 1),
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
-			vxo_points_style(vx_red, 2.0f))));
+			vxo_points_style(vx_red, 2.0f)))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
 
 		/*if(calib_cam){
@@ -758,7 +759,7 @@ void* gui_create(int argc, char **argv){
     getopt_add_bool(gstate->gopt, 'h', "help", 0, "Show help");
     getopt_add_string(gstate->gopt, '\0', "url", "", "Camera URL");
 	getopt_add_string(gstate->gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
-	getopt_add_string(gstate->gopt, 'm', "mode", "VIEW_MODE", "click | view");
+	getopt_add_string(gstate->gopt, 'c', "camera", "", "laptop");
 
 
     if (!getopt_parse(gstate->gopt, argc, argv, 1) || getopt_get_bool(gstate->gopt, "help"))
@@ -804,8 +805,8 @@ void* gui_create(int argc, char **argv){
             printf("Found no cameras.\n");
             return NULL;
         }
-	if(zarray_size(urls) >= 3) {
-	    zarray_get(urls, 0, &gstate->url);	//2
+	if(!strcmp(getopt_get_string(gstate->gopt, "camera"), "laptop")) {
+	    zarray_get(urls, 2, &gstate->url);
 	}
 	else {
 	    zarray_get(urls, 0, &gstate->url);

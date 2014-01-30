@@ -23,7 +23,7 @@
 
 #define NUM_SERVOS 6
 #define _USE_MATH_DEFINES //PI
-#define ARM_L1 11
+#define ARM_L1 11.5
 #define ARM_L2 10
 #define ARM_L3 10
 #define ARM_L4 18

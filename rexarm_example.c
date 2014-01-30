@@ -23,7 +23,7 @@
 
 #define NUM_SERVOS 6
 #define _USE_MATH_DEFINES //PI
-#define ARM_L1 11
+#define ARM_L1 11.5
 #define ARM_L2 10
 #define ARM_L3 10
 #define ARM_L4 18
@@ -326,10 +326,10 @@ void status_handler(const lcm_recv_buf_t *rbuf,
                            void *user)
 {
      //printf("Status handler\n");
-	int moving = 0;
+	/*int moving = 0;
 	if(armIsMoving()){
 		moving = 1;
-	}
+	}*/
     // Print out servo positions
 	double position_radians[NUM_SERVOS];
 	int id;
@@ -503,7 +503,7 @@ int main(int argc, char **argv)
     getopt_add_string(gopt, '\0', "command-channel", "ARM_COMMAND", "LCM command channel");
 	//getopt_add_string(gopt, '\0', "command-mail-channel","COMMAND_MAIL", "LCM command mail channel");
 	getopt_add_string(gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
-	getopt_add_string(gopt, 'c', "camera", "", "laptop");
+	getopt_add_bool(gopt, 'c', "camera", 0, "laptop");
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
         getopt_do_usage(gopt);

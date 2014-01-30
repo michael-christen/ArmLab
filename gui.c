@@ -506,7 +506,7 @@ void render_elements(int above, vx_world_t* world){
 	Arm_t* arm = calloc(1, sizeof(Arm_t));;
 
 	arm->block1size = 7;
-	arm->block2size = 4;
+	arm->block2size = 4.5;
 	arm->block3size = 10;
 	arm->block4size = 10;
 	arm->block5size = 10;
@@ -759,7 +759,7 @@ void* gui_create(int argc, char **argv){
     getopt_add_bool(gstate->gopt, 'h', "help", 0, "Show help");
     getopt_add_string(gstate->gopt, '\0', "url", "", "Camera URL");
 	getopt_add_string(gstate->gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
-	getopt_add_string(gstate->gopt, 'c', "camera", "", "laptop");
+	getopt_add_bool(gstate->gopt, 'c', "camera", 0, "laptop");
 
 
     if (!getopt_parse(gstate->gopt, argc, argv, 1) || getopt_get_bool(gstate->gopt, "help"))
@@ -805,7 +805,7 @@ void* gui_create(int argc, char **argv){
             printf("Found no cameras.\n");
             return NULL;
         }
-	if(!strcmp(getopt_get_string(gstate->gopt, "camera"), "laptop")) {
+	if(getopt_get_bool(gstate->gopt, "camera")) {
 	    zarray_get(urls, 2, &gstate->url);
 	}
 	else {

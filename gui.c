@@ -44,7 +44,7 @@ int numSamples = 0;
 pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
 
-int calib_UL = 0;	//Calibrating upper left quadrant
+int calib_cam = 0;	//Calibrating upper left quadrant
 double calib_positions[NUM_SERVOS] = {0, M_PI/2.0, 0, 0, 0, M_PI/2.0};
 
 void* initScalingFactors(void *data) {
@@ -136,7 +136,7 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
        arm_zoom = pg_gi(pg, name);
     } else if (!strcmp("but1", name)){
 		//camera_show = pg_gb(pg, name);
-		calib_UL = ~calib_UL;
+		calib_cam = ~calib_cam;
 	} else {
         printf("%s changed\n", name);
     }
@@ -169,16 +169,11 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
     int button_up = diff_button & last_mouse.button_mask; // which button(s) just got released?
     double man_point[3];
 	if(button_up){
-		if(mouse->x >= DISPLAY_W/2.0){
-			vx_ray3_t ray;
-			vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
-			vx_ray3_intersect_xy(&ray, 0.0, man_point);
-			printf("x: %f, man_x: %f\n", mouse->x, man_point[0]);
-			printf("y: %f, man_y: %f\n", mouse->y, man_point[1]);
-		}else{
-			man_point[0] = mouse->x;
-			man_point[1] = mouse->y;
-		}
+		vx_ray3_t ray;
+		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
+		vx_ray3_intersect_xy(&ray, 0.0, man_point);
+		printf("x: %f, man_x: %f\n", mouse->x, man_point[0]);
+		printf("y: %f, man_y: %f\n", mouse->y, man_point[1]);
 		dynamixel_status_list_t stats;
 		stats.len = 1;
 		stats.statuses = malloc(sizeof(dynamixel_status_t));
@@ -187,9 +182,9 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].load = man_point[1];
 		stats.statuses[0].voltage = DISPLAY_H;
 		stats.statuses[0].temperature = DISPLAY_W;
-		if(calib_UL){
+		if(calib_cam){
 			stats.statuses[0].error_flags = 3;
-			calib_UL = 0;
+			calib_cam = 0;
 		}else{
 			stats.statuses[0].error_flags = 0;
 		}
@@ -589,7 +584,7 @@ void* render_above(void* data){
 
 	float black[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 	float position[4] = {0.0f, 0.5f, 0.5f, 0.5f};
-	float transparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	//float transparent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 	//while(zhash_iterator_next(&it, &key, &value)){
 		vx_layer_set_background_color(layer, black);
@@ -623,15 +618,14 @@ void* render_above(void* data){
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
-			vxo_pix_coords(VX_ORIGIN_CENTER,
 			vxo_chain(vxo_mat_translate3(0, 0, -1),
 			vxo_mat_scale3(1, DISPLAY_H/2.0, 1),
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
-			vxo_points_style(vx_red, 2.0f)))));
+			vxo_points_style(vx_red, 2.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
 
-		if(calib_UL){
+		/*if(calib_cam){
 			vx_buffer_add_back(vx_world_get_buffer(new_world, "circle"),
 				vxo_chain(vxo_mat_translate3(37, 0, 15),
 				vxo_mat_scale3(.5, .5, 1),
@@ -649,7 +643,7 @@ void* render_above(void* data){
 		}else{
 			vx_buffer_swap(vx_world_get_buffer(new_world, "circle"));
 			vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
-		}
+		}*/
 
 		usleep(25000);
 	}
@@ -848,7 +842,7 @@ void* gui_create(int argc, char **argv){
                        "cb1", "Camera", 1,
                        NULL);*/
     pg_add_buttons(pg,
-                   "but1", "Calibrate Upper Left",
+                   "but1", "Calibrate Camera",
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t));

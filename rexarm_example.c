@@ -271,46 +271,30 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 
 	state_t* state = user;
 
-	double x, y, display_h, display_w;
+	double x, y, display_w;
 	dynamixel_status_t stat = msg->statuses[0];
 	x = stat.speed;
 	y = stat.load;
-	display_h = stat.voltage - 50;
 	display_w = stat.temperature;
 
 	if(x < display_w/2.0){
 		//Bird's-eye view
 
-		double origx = display_w/4.0;
-		double origy = 3*display_h/4.0;
+		double r = sqrt(pow(x, 2) + pow(y, 2));
+		double theta = atan(y/x);
 
-		double deltax = (x-origx);
-		double deltay = (y-origy);
-		
-		if(stat.error_flags == 3){
-			printf("Scaling factor changed from %f ", UL_scaling_factor);
-			UL_scaling_factor = deltax/37;	//length of arm from shoulder
-			printf("to %f\n)", UL_scaling_factor);
-		}else{
-			deltay = deltay/UL_scaling_factor;
-			deltax = deltax/UL_scaling_factor;
+		if(x < 0 && y > 0){
+			theta += M_PI;
+		}
+		if(x < 0 && y < 0){
+			theta -= M_PI;
+		}
+		//double height = 4;
+		printf("r: %f\n", r);
 
-			double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
-			double theta = atan(deltay/deltax);
-
-			if(deltax < 0 && deltay > 0){
-				theta += M_PI;
-			}
-			if(deltax < 0 && deltay < 0){
-				theta -= M_PI;
-			}
-			//double height = 4;
-			//printf("r: %f\n", r);
-
-			if(r < 16.0){
-				//sendCommand(state, theta, r, height, 2, .1, .4);
-				pickUpBall(state, theta, r);
-			}
+		if(r < 16.0){
+			//sendCommand(state, theta, r, height, 2, .1, .4);
+			pickUpBall(state, theta, r);
 		}
 
 	}else{

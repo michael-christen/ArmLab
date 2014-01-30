@@ -67,6 +67,9 @@ dynamixel_status_list_t *command_msg, *status_msg;
 pthread_mutex_t status_mutex;
 pthread_cond_t status_cv, status_exit_cv;
 
+dynamixel_command_list_t global_cmds;
+int neverMoved = 1;
+
 static int64_t utime_now()
 {
     struct timeval tv;
@@ -121,6 +124,10 @@ int armIsMoving(){
 
 void* sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) {
 	
+	pthread_mutex_lock(&sample_mutex);
+	pthread_cond_wait(&sample_cv, &sample_mutex);
+	neverMoved = 0;
+
 	dynamixel_command_list_t cmds;
     cmds.len = NUM_SERVOS;
     cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
@@ -140,11 +147,13 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     for (int id = 0; id < NUM_SERVOS; id++) {
         cmds.commands[id].utime = utime_now();
         cmds.commands[id].position_radians = positions[id];
+	global_cmds.commands[id].position_radians = positions[id];
         cmds.commands[id].speed = speed;
 		cmds.commands[id].max_torque = torque;
     }
 
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
+    pthread_mutex_unlock(&sample_mutex);
 
 	free(cmds.commands);	//Maybe move this to executeCommand if there's a seg fault
 	return NULL;
@@ -160,19 +169,14 @@ void closeClaw(state_t* state, double theta, double r, double height){
 
 void pickUpBall(state_t* state, double theta, double r){
     printf("pickupBall\n");
-	pthread_mutex_lock(&sample_mutex);
-	sendCommand(state, theta, r, 4, 1, .3, .5);
 	printf("1\n");
-	pthread_cond_wait(&sample_cv, &sample_mutex);
-	sendCommand(state, theta, r, 0, 1, .5, .5);
+	sendCommand(state, theta, r, 4, 1, .3, .5);
 	printf("2\n");
-	pthread_cond_wait(&sample_cv, &sample_mutex);
-	sendCommand(state, theta, r, 0, 0, .7, .5);
+	sendCommand(state, theta, r, 0, 1, .5, .5);
 	printf("3\n");
-	pthread_cond_wait(&sample_cv, &sample_mutex);
-	sendCommand(state, theta, r, 4, 0, .5, .5);	
+	sendCommand(state, theta, r, 0, 0, .7, .5);
 	printf("4\n");
-	pthread_mutex_unlock(&sample_mutex);
+	sendCommand(state, theta, r, 4, 0, .5, .5);	
 }
 
 
@@ -277,6 +281,8 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 
 		double deltay = (y - origy)/5.0;
 		double deltax = (x - origx)/5.0;
+		deltay = y;
+		deltax = x;
 
 		double r = sqrt(pow(deltax, 2) + pow(deltay, 2));
 		double theta = atan(deltay/deltax);
@@ -312,7 +318,6 @@ void* commandListener(void *data){
 	    pthread_cond_wait(&command_cv, &command_mutex);
 	    printf("... handling command\n");
 	    click_handler(command_rbuf, command_msg, state);
-	    //pthread_cond_signal(&command_exit_cv);
 	    pthread_mutex_unlock(&command_mutex);
 	}
 
@@ -338,7 +343,10 @@ void status_handler(const lcm_recv_buf_t *rbuf,
     }
 	pthread_mutex_lock(&sample_mutex);
 	//printf("Hey\n");
-	if(moving && !armIsMoving()){
+	//We want to be enabled after stationary, just not inbetween
+	//movements
+	neverMoved = neverMoved || (moving && !armIsMoving());
+	if(neverMoved){
 		printf("signaling\n");
 		pthread_cond_signal(&sample_cv);
 	}
@@ -484,6 +492,10 @@ int main(int argc, char **argv)
 	//state->command_mail_channel = getopt_get_string(gopt, "command-mail-channel");
     state->status_channel = getopt_get_string(gopt, "status-channel");
     state->lcm_channel = "lcm-channel";
+
+    global_cmds.len = NUM_SERVOS;
+    global_cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
+
     printf("Status_ch: %s\n",state->status_channel);
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
 

@@ -165,24 +165,23 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
     int button_up = diff_button & last_mouse.button_mask; // which button(s) just got released?
     double man_point[3];
 	if(button_up){
+	        vx_ray3_t ray;
+		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
+		vx_ray3_intersect_xy(&ray, 0.0, man_point);
+		printf("x: %f, man_x: %f\n", mouse->x, man_point[0]);
+		printf("y: %f, man_y: %f\n", mouse->y, man_point[1]);
 		dynamixel_status_list_t stats;
 		stats.len = 1;
 		stats.statuses = malloc(sizeof(dynamixel_status_t));
 		stats.statuses[0].utime = utime_now();
-		stats.statuses[0].speed = mouse->x;
-		stats.statuses[0].load = mouse->y;
+		stats.statuses[0].speed = man_point[0]; 
+		stats.statuses[0].load = man_point[1];
 		stats.statuses[0].voltage = DISPLAY_H;
 		stats.statuses[0].temperature = DISPLAY_W;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
-		printf("clicked x:%f, clicked y:%f\n", mouse->x, mouse->y);
-		printf("layer: %f\n", vl);
-		vx_ray3_t ray;
-		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
-		vx_ray3_intersect_xy(&ray, 0.0, man_point);
-		printf("manX: %f, manY: %f, manZ: %f", man_point[0],
-			man_point[1], man_point[2]);
-		//Clicked in camera area
 		pthread_mutex_lock(&sample_mutex);
+		//Clicked in camera area
+		//Not valid
 		if(mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
 		    samples[numSamples*3] = mouse->x;

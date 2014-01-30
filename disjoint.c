@@ -29,6 +29,7 @@ Set * set_init(int x) {
 
 Set* set_find(Set *a)
 {
+    assert(a);
     if(a->parent != a)
 	a->parent = set_find(a->parent);
     return a->parent;
@@ -36,6 +37,7 @@ Set* set_find(Set *a)
 
 void set_link(Set* a, Set *b)
 {
+    assert(a && b);
     if(a == set_find(b))
 	return;
     if(set_find(b)->rank > a->rank)

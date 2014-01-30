@@ -542,7 +542,8 @@ void render_elements(int above, vx_world_t* world){
 		vx_buffer_add_back(vx_world_get_buffer(world, "block4"), render4(above, arm));
 		vx_buffer_add_back(vx_world_get_buffer(world, "block5"), render5(above, arm));
 		vx_buffer_add_back(vx_world_get_buffer(world, "block6"), render6(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
+		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));
+		
 	//}
 
 	vx_buffer_swap(vx_world_get_buffer(world, "block1"));
@@ -615,6 +616,13 @@ void* render_above(void* data){
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
 			vxo_points_style(vx_red, 2.0f)))));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossx"),
+			vxo_chain(vxo_mat_translate3(0, 0, .1),
+			vxo_mat_scale3(61, 1, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 1.0f),
+			vxo_points_style(vx_red, 1.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
@@ -624,7 +632,23 @@ void* render_above(void* data){
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
 			vxo_points_style(vx_red, 2.0f)))));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
+			vxo_chain(vxo_mat_translate3(0, 0, .1),
+			vxo_mat_scale3(1, 61, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 1.0f),
+			vxo_points_style(vx_red, 1.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
+
+		
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "board"), 
+			vxo_chain(vxo_mat_translate3(0,0,0),
+			vxo_mat_scale3(61, 61, 1),
+			vxo_rect(vxo_mesh_style(vx_gray),
+			vxo_lines_style(vx_gray, 2.0f),
+			vxo_points_style(vx_gray, 2.0f))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "board"));
 
 		/*if(calib_cam){
 			vx_buffer_add_back(vx_world_get_buffer(new_world, "circle"),
@@ -693,6 +717,14 @@ void* render_view(void* data){
 			vxo_lines_style(vx_green, 2.0f),
 			vxo_points_style(vx_green, 2.0f)))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "board"), 
+			vxo_chain(vxo_mat_translate3(0,-25,0),
+			vxo_mat_scale3(61, 1, 61),
+			vxo_rect(vxo_mesh_style(vx_gray),
+			vxo_lines_style(vx_gray, 2.0f),
+			vxo_points_style(vx_gray, 2.0f))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "board"));
 
 		usleep(25000);
 	}

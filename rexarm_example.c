@@ -27,6 +27,7 @@
 #define ARM_L2 10
 #define ARM_L3 10
 #define ARM_L4 18
+#define RADIAN_ERROR 0.0001
 
 typedef struct state state_t;
 struct state
@@ -125,7 +126,6 @@ int armIsMoving(){
 void* sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) {
 	
 	pthread_mutex_lock(&sample_mutex);
-	pthread_cond_wait(&sample_cv, &sample_mutex);
 	neverMoved = 0;
 
 	dynamixel_command_list_t cmds;
@@ -152,6 +152,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 		cmds.commands[id].max_torque = torque;
     }
 
+    pthread_cond_wait(&sample_cv, &sample_mutex);
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
     pthread_mutex_unlock(&sample_mutex);
 
@@ -335,20 +336,46 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	}
     // Print out servo positions
 	double position_radians[NUM_SERVOS];
-   for (int id = 0; id < msg->len; id++) {
-        dynamixel_status_t stat = msg->statuses[id];
-		position_radians[id] = stat.position_radians;
-		cur_speeds[id] = stat.speed;
-        //printf("[id %02d]=%3.3f ",id, stat.speed);
-    }
+	int id;
 	pthread_mutex_lock(&sample_mutex);
+	for (id = 0; id < msg->len; id++) {
+	    dynamixel_status_t stat = msg->statuses[id];
+	    position_radians[id] = stat.position_radians;
+	    cur_speeds[id] = stat.speed;
+	    //Initialize global_cmds
+	    if(neverMoved) {
+		global_cmds.commands[id].position_radians =
+		    stat.position_radians;
+	    }
+	    //printf("[id %02d]=%3.3f ",id, stat.speed);
+	}
+	//Set false after first time
+	if(neverMoved) {
+	    neverMoved = 0;
+	}
 	//printf("Hey\n");
 	//We want to be enabled after stationary, just not inbetween
 	//movements
-	neverMoved = neverMoved || (moving && !armIsMoving());
-	if(neverMoved){
-		printf("signaling\n");
-		pthread_cond_signal(&sample_cv);
+	//neverMoved = neverMoved || (moving && !armIsMoving());
+	int satisfied = 1;
+	for (id = 0; id < NUM_SERVOS; id++) {
+	    //If all servos aren't in position
+	    /*
+	    printf("global pos %d: %f, cur pos %f\n",
+		    id,
+		    global_cmds.commands[id].position_radians,
+		    position_radians[id]
+	    );
+	    */
+	    if(abs(global_cmds.commands[id].position_radians -
+			position_radians[id]) > RADIAN_ERROR) {
+		satisfied = 0;
+		break;
+	    }
+	}
+	if(!satisfied){
+	    printf("signaling\n");
+	    pthread_cond_signal(&sample_cv);
 	}
 	pthread_mutex_unlock(&sample_mutex);
 
@@ -356,15 +383,15 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 }
 
 void* statusListener(void *data){
-	state_t* state = data;
-	/*dynamixel_status_list_t_subscribe(state->lcm,
-	  state->command_mail_channel,
-	  executeCommand,
-	  state);*/
-	while(1) {
-	    pthread_mutex_lock(&status_mutex);
-	    pthread_cond_wait(&status_cv, &status_mutex);
-            //printf("..handling status\n");
+    state_t* state = data;
+    /*dynamixel_status_list_t_subscribe(state->lcm,
+      state->command_mail_channel,
+      executeCommand,
+      state);*/
+    while(1) {
+	pthread_mutex_lock(&status_mutex);
+	pthread_cond_wait(&status_cv, &status_mutex);
+	//printf("..handling status\n");
 	    status_handler(status_rbuf, status_msg, state);
 	    //pthread_cond_signal(&status_exit_cv);
 	    pthread_mutex_unlock(&status_mutex);

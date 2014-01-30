@@ -12,7 +12,7 @@
 #define MIN_PXS 125
 #define MAX_PXS 400
 #define MAX_NUM_NEIGHBORS 8
-#define MAX_NUM_BALLS 1000
+#define MAX_NUM_BALLS 1500
 
 typedef struct ball ball_t;
 struct ball {

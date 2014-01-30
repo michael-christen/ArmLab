@@ -1,6 +1,7 @@
 #ifndef __DISJOINT__H__
 #define __DISJOINT__H__
 #include<stdlib.h>
+#include<assert.h>
 
 typedef struct Set Set;
 struct Set

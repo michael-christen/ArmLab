@@ -52,14 +52,14 @@ void* initScalingFactors(void *data) {
     int i;
     //X, Y positions for calibration
     double positions[2*NUM_SAMPLES_FOR_ISCALING] = {
-	-15.1, 14.9,
-	0.2,   15.3,
-	14.9,  15.1,
-	15.3,  -0.6,
-	15.3,  -15,
-	-0.1,  -15.3,
-	-14.9, -15.3,
-	-15.0, 0.2
+	-15.1, -14.9,
+	0.2,   -15.3,
+	14.9,  -15.1,
+	15.3,  0.6,
+	15.3,  15,
+	-0.1,  15.3,
+	-14.9, 15.3,
+	-15.0, -0.2
     };
     pthread_mutex_lock(&sample_mutex);
 

@@ -49,8 +49,8 @@ struct state
 double cur_speeds[NUM_SERVOS];
 double cur_positions[NUM_SERVOS];
 
-pthread_mutex_t sample_mutex;
-pthread_cond_t sample_cv;
+pthread_mutex_t cmd_mutex;
+pthread_cond_t cmd_cv;
 int new_cmd;
 
 pthread_mutex_t command_mutex;
@@ -110,14 +110,14 @@ int armIsMoving(){
 
 void* sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) 
 {
-    pthread_mutex_lock(&sample_mutex);
+    pthread_mutex_lock(&cmd_mutex);
 
     /*
     while(!new_cmd) { 
 	new_cmd = 0;
     }
     */
-    pthread_cond_wait(&sample_cv, &sample_mutex);
+    pthread_cond_wait(&cmd_cv, &cmd_mutex);
 
     neverMoved = 0;
     dynamixel_command_list_t cmds;
@@ -151,7 +151,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     //Send it after get signal from status
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
 
-    pthread_mutex_unlock(&sample_mutex);
+    pthread_mutex_unlock(&cmd_mutex);
 
     free(cmds.commands);	//Maybe move this to executeCommand if there's a seg fault
     return NULL;
@@ -331,19 +331,19 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	}
     }
 
-    pthread_mutex_lock(&sample_mutex);
+    pthread_mutex_lock(&cmd_mutex);
 
     /*
     if(satisfied && !new_cmd){
 	printf("signaling\n");
 	new_cmd = 1;
-	pthread_cond_broadcast(&sample_cv);
+	pthread_cond_broadcast(&cmd_cv);
     }
     */
     if(satisfied){
-	printf("signaling\n");
+	//printf("signaling\n");
 	new_cmd = 1;
-	pthread_cond_broadcast(&sample_cv);
+	pthread_cond_broadcast(&cmd_cv);
     }
 
     //Set false after first time
@@ -351,7 +351,7 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	new_cmd = 1;
 	neverMoved = 0;
     }
-    pthread_mutex_unlock(&sample_mutex);
+    pthread_mutex_unlock(&cmd_mutex);
 
     gui_update_servo_pos(position_radians);
 }

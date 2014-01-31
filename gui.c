@@ -735,6 +735,34 @@ void* render_view(void* data){
 		vxo_grid()));
 	vx_buffer_swap(vx_world_get_buffer(gstate->world, "grid"));*/
 
+	/*default_cam_mgr_t* dcm = default_cam_mgr_create();
+	uint64_t* mtime = 0;
+	vx_camera_pos_t* pos = default_cam_mgr_get_cam_target(dcm, mtime);
+	double pixelsToRadians = M_PI /  (pos->viewport[2] >  pos->viewport[3] ? pos->viewport[2] : pos->viewport[3]);
+
+	zarray_t * fp = zarray_create(sizeof(matd_t*));
+    matd_t * eye = matd_create_data(3,1, pos->eye);    zarray_add(fp, &eye);
+    matd_t * lookat = matd_create_data(3,1, pos->lookat); zarray_add(fp, &lookat);
+    matd_t * up = matd_create_data(3,1, pos->up);     zarray_add(fp, &up);
+
+	matd_t *qx = matd_create(4,1); zarray_add(fp, &qx);
+    matd_t *qy = matd_create(4,1); zarray_add(fp, &qy);
+
+    matd_t * p2eye = matd_subtract(eye, lookat); zarray_add(fp, &p2eye);
+    matd_t * left = matd_crossproduct(p2eye,up); zarray_add(fp, &left);
+
+    vx_util_angle_axis_to_quat(-50*pixelsToRadians, up->data, qx->data);
+    vx_util_angle_axis_to_quat(-50*pixelsToRadians, left->data, qy->data);
+
+    matd_t * qcum = matd_create(4,1); zarray_add(fp, &qcum);
+    vx_util_quat_multiply(qx->data,qy->data, qcum->data);
+
+    // apply rotation
+    default_cam_mgr_rotate(dcm, qcum->data, 0);
+	pos = default_cam_mgr_get_cam_target(dcm, mtime);
+
+	//vx_layer_camera_lookat(layer, pos->eye, pos->lookat, pos->up, 0);*/
+
 	while(gstate->running){
 		render_elements(0, new_world);
 		

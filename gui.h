@@ -6,8 +6,10 @@
 #include "../vx/vx_types.h"
 #include "../vx/vx_event.h"
 #include "../vx/vx_event_handler.h"
+#include "../vx/default_camera_mgr.h"
 
 #include "../common/matd.h"
+#include "common/math_util.h"
 
 #include <lcm/lcm.h>
 #include "lcmtypes/dynamixel_command_list_t.h"

@@ -13,6 +13,8 @@
 #include "lcmtypes/dynamixel_command_t.h"
 #include "lcmtypes/dynamixel_status_list_t.h"
 #include "lcmtypes/dynamixel_status_t.h"
+#include "lcmtypes/ball_list_t.h"
+#include "lcmtypes/ball_info_t.h"
 
 #include "common/dynamixel_device.h"
 #include "common/dynamixel_serial_bus.h"
@@ -39,6 +41,7 @@ struct state
     const char *lcm_channel;
     const char *status_channel;
     const char *gui_channel;
+    const char *ball_channel;
 
     pthread_t lcm_handle_thread;
     pthread_t command_thread;
@@ -478,6 +481,7 @@ int main(int argc, char **argv)
     getopt_add_string(gopt, '\0', "command-channel", "ARM_COMMAND", "LCM command channel");
 	//getopt_add_string(gopt, '\0', "command-mail-channel","COMMAND_MAIL", "LCM command mail channel");
 	getopt_add_string(gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
+    getopt_add_string(gopt, '\0', "ball-channel", "ARM_BALL", "Ball positions channel");
 	getopt_add_bool(gopt, 'c', "camera", 0, "laptop");
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
@@ -497,6 +501,7 @@ int main(int argc, char **argv)
 
     printf("Status_ch: %s\n",state->status_channel);
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
+    state->ball_channel = getopt_get_string(gopt, "ball-channel");
 
     //Handles incoming lcm messages and redirects to commandListener
     //or status Listener

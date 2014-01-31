@@ -360,15 +360,21 @@ void* render_camera(void *data)
 		transform_balls();
 		//pthread_mutex_unlock(&ball_mutex);
 		
-		/*if(num_balls) {
-		    printf("%d Balls\n", num_balls);
-		    for(int i = 0; i < num_balls; ++i) {
-			printf("X: %f, Y: %f, pxs: %d\n",
-				balls[i].x, 
-				balls[i].y, 
-				balls[i].num_px);
+		if(num_balls) {
+		    ball_list_t ball_list;
+		    ball_list.len = num_balls;
+		    ball_list.balls = malloc(sizeof(ball_info_t)*num_balls);
+
+		    for (int id = 0; id < num_balls; id++) {
+				ball_list.balls[id].utime = utime_now();
+				ball_list.balls[id].x = balls[id].x;
+				ball_list.balls[id].y = balls[id].y;
+				ball_list.balls[id].num_pxs = balls[id].num_pxs;
 		    }
-		}*/
+
+		    //Send it after get signal from status
+		    dynamixel_command_list_t_publish(state->lcm, state->ball_channel, &ball_list);
+		}
 		
 
                 if (im != NULL) {

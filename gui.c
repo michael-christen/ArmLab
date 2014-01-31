@@ -181,11 +181,11 @@ static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 	if(button_up){
 		vx_ray3_t ray;
 		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
-		vx_ray3_intersect_xy(&ray, 0.0, man_point);
+		vx_ray3_intersect_xy(&ray, camera_zoom, man_point);
 		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid
-		printf("x: %f, y: %f\n", man_point[0], man_point[1]);
+		printf("x: %f, y: %f, z: %f\n", man_point[0], man_point[1], man_point[2]);
 		if(calib_cam && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
 		    samples[numSamples*3] = man_point[0];
@@ -798,13 +798,13 @@ void* render_status(void* data){
 		//pthread_mutex_lock(&ball_mutex);
 		sprintf(ballText, " %d Balls:\n", num_balls);
 		for(int i = 0; i < num_balls; ++i) {
-		    sprintf(ballText +strlen(ballText), "%d ( %f, %f)\n", i,
+		    sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
 			    balls[i].x, balls[i].y);
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
-		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_LEFT, ballText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_LEFT, textb));
+		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, ballText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, textb));
 
 		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));

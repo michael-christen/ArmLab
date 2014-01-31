@@ -35,7 +35,6 @@ struct state
     // LCM
     lcm_t *lcm;
     const char *command_channel;
-	//const char *command_mail_channel;
     const char *lcm_channel;
     const char *status_channel;
     const char *gui_channel;
@@ -45,13 +44,6 @@ struct state
     pthread_t status_thread;
     pthread_t command_mail_thread;
     pthread_t gui_thread;
-
-/*
-    lcm_recv_buf_t *lcm_rbuf;
-    const char *lcm_channel;
-    const dynamixel_status_list_t *lcm_msg;
-    void *lcm_user;
-*/
 };
 
 double cur_speeds[NUM_SERVOS];
@@ -59,6 +51,7 @@ double cur_positions[NUM_SERVOS];
 
 pthread_mutex_t sample_mutex;
 pthread_cond_t sample_cv;
+int new_cmd;
 
 pthread_mutex_t command_mutex;
 pthread_cond_t command_cv, command_exit_cv;
@@ -115,21 +108,15 @@ int armIsMoving(){
 	return (cur_speeds[0] > .1 || cur_speeds[1] > .1 || cur_speeds[2] > .1 || cur_speeds[3] > .1 || cur_speeds[4] > .1 || cur_speeds[5] > .1);
 }
 
-/*static void executeCommand(const lcm_recv_buf_t *rbuf,
-                           const char *channel,
-                           const dynamixel_command_list_t *cmds,
-                           void *user){
-	while(armIsMoving()){
-		usleep(1000);
-	}
-
-	dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
-{*/
-
 void* sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) 
 {
     pthread_mutex_lock(&sample_mutex);
 
+    /*
+    while(!new_cmd) { 
+	new_cmd = 0;
+    }
+    */
     pthread_cond_wait(&sample_cv, &sample_mutex);
 
     neverMoved = 0;
@@ -141,6 +128,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     for(int i = 0; i < NUM_SERVOS; i++){
 	positions[i] = cur_positions[i];
     }
+    positions[4] = 0;
 
     //Inits positions to desired theta, r, height
     getServoAngles(positions, theta, r, height);
@@ -297,7 +285,6 @@ void* commandListener(void *data){
 	    pthread_mutex_lock(&command_mutex);
 	    pthread_cond_wait(&command_cv, &command_mutex);
 
-	    //printf("... handling command\n");
 	    click_handler(command_rbuf, command_msg, state);
 
 	    pthread_mutex_unlock(&command_mutex);
@@ -327,10 +314,6 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	}
 	//printf("[id %02d]=%3.3f ",id, stat.speed);
     }
-    //Set false after first time
-    if(neverMoved) {
-	neverMoved = 0;
-    }
     int satisfied = 1;
     for (id = 0; id < NUM_SERVOS; id++) {
 	//If all servos aren't in position
@@ -349,9 +332,24 @@ void status_handler(const lcm_recv_buf_t *rbuf,
     }
 
     pthread_mutex_lock(&sample_mutex);
+
+    /*
+    if(satisfied && !new_cmd){
+	printf("signaling\n");
+	new_cmd = 1;
+	pthread_cond_broadcast(&sample_cv);
+    }
+    */
     if(satisfied){
-	//printf("signaling\n");
-	pthread_cond_signal(&sample_cv);
+	printf("signaling\n");
+	new_cmd = 1;
+	pthread_cond_broadcast(&sample_cv);
+    }
+
+    //Set false after first time
+    if(neverMoved) {
+	new_cmd = 1;
+	neverMoved = 0;
     }
     pthread_mutex_unlock(&sample_mutex);
 
@@ -372,101 +370,6 @@ void* statusListener(void *data){
 	return NULL;
 }
 
-
-
-void* command_test(void *data){
-	state_t *state = data;
-	sendCommand(state, M_PI, 13, 8, 1, .1, .5);
-	/*int hz = 30;
-
-   	state_t *state = data;
-
-    dynamixel_command_list_t cmds;
-    cmds.len = NUM_SERVOS;
-    cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
-
-	double positions[NUM_SERVOS];
-
-	getServoAngles(positions, M_PI, 13, 8);
-	openClaw(positions);
-
-    // Send LCM commands to arm. Normally, you would update positions, etc,
-    // but here, we will just home the arm.
-    for (int id = 0; id < NUM_SERVOS; id++) {
-        cmds.commands[id].utime = utime_now();
-        cmds.commands[id].position_radians = positions[id];
-        cmds.commands[id].speed = 0.1;
-		cmds.commands[id].max_torque = .0;
-    }
-    dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
-
-    usleep(1000000/hz);
-
-	
-    free(cmds.commands);*/
-
-    return NULL;
-}
-
-void* command_home(void *data){
-	int hz = 30;
-
-    state_t *state = data;
-
-    dynamixel_command_list_t cmds;
-    cmds.len = NUM_SERVOS;
-    cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
-
-	double positions[NUM_SERVOS] = {-M_PI/2, -M_PI/2, M_PI/2, M_PI/2, 0, 2*M_PI/3};
-
-    // Send LCM commands to arm. Normally, you would update positions, etc,
-    // but here, we will just home the arm.
-    for (int id = 0; id < NUM_SERVOS; id++) {
-        cmds.commands[id].utime = utime_now();
-        cmds.commands[id].position_radians = positions[id];
-        cmds.commands[id].speed = 0.2;
-		cmds.commands[id].max_torque = 0;
-    }
-    dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
-
-    usleep(1000000/hz);
-
-	
-    free(cmds.commands);
-
-    return NULL;
-}
-
-void* command_loop(void *data)
-{
-    int hz = 30;
-
-    state_t *state = data;
-
-    dynamixel_command_list_t cmds;
-    cmds.len = NUM_SERVOS;
-    cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);
-
-	//double positions[NUM_SERVOS] = {-M_PI/2, -3*M_PI/4, 2.7*M_PI/4, M_PI/2, 0, 0};
-    while (1) {
-        // Send LCM commands to arm. Normally, you would update positions, etc,
-        // but here, we will just home the arm.
-        for (int id = 0; id < NUM_SERVOS; id++) {
-            cmds.commands[id].utime = utime_now();
-            cmds.commands[id].position_radians = 0;
-            cmds.commands[id].speed = 0.5;
-			cmds.commands[id].max_torque = .5;
-        }
-        dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
-
-        usleep(1000000/hz);
-    }
-	
-    free(cmds.commands);
-
-    return NULL;
-}
-
 // This subscribes to the status messages sent out by the arm, displaying servo
 // state in the terminal. It also sends messages to the arm ordering it to the
 // "home" position (all servos at 0 radians).
@@ -485,6 +388,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    new_cmd = 0;
     state_t *state = malloc(sizeof(state_t));
     state->lcm = lcm_create(NULL);
     state->command_channel = getopt_get_string(gopt, "command-channel");

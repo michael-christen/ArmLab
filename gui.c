@@ -586,23 +586,13 @@ void render_elements(int above, vx_world_t* world){
 		arm->totalyshift = -18;
 	}
 
-	/*if(above){
-		vx_buffer_add_back(vx_world_get_buffer(world, "block1"), vxo_pix_coords(VX_ORIGIN_CENTER, render1(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block2"), vxo_pix_coords(VX_ORIGIN_CENTER, render2(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block3"), vxo_pix_coords(VX_ORIGIN_CENTER, render3(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block4"), vxo_pix_coords(VX_ORIGIN_CENTER, render4(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block5"), vxo_pix_coords(VX_ORIGIN_CENTER, render5(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block6"), vxo_pix_coords(VX_ORIGIN_CENTER, render6(above, arm)));
-		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), vxo_pix_coords(VX_ORIGIN_CENTER, renderClaw(above, arm)));	
-	}else{*/
-		vx_buffer_add_back(vx_world_get_buffer(world, "block1"), render1(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block2"), render2(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block3"), render3(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block4"), render4(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block5"), render5(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "block6"), render6(above, arm));
-		vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
-	//}
+	vx_buffer_add_back(vx_world_get_buffer(world, "block1"), render1(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "block2"), render2(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "block3"), render3(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "block4"), render4(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "block5"), render5(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "block6"), render6(above, arm));
+	vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
 
 	vx_buffer_swap(vx_world_get_buffer(world, "block1"));
 	vx_buffer_swap(vx_world_get_buffer(world, "block2"));
@@ -674,6 +664,13 @@ void* render_above(void* data){
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
 			vxo_points_style(vx_red, 2.0f)))));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossx"),
+			vxo_chain(vxo_mat_translate3(0, 0, .1),
+			vxo_mat_scale3(61, 1, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 1.0f),
+			vxo_points_style(vx_red, 1.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
@@ -683,27 +680,23 @@ void* render_above(void* data){
 			vxo_rect(vxo_mesh_style(vx_red),
 			vxo_lines_style(vx_red, 2.0f),
 			vxo_points_style(vx_red, 2.0f)))));
+
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
+			vxo_chain(vxo_mat_translate3(0, 0, .1),
+			vxo_mat_scale3(1, 61, 1),
+			vxo_rect(vxo_mesh_style(vx_red),
+			vxo_lines_style(vx_red, 1.0f),
+			vxo_points_style(vx_red, 1.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));
 
-		/*if(calib_cam){
-			vx_buffer_add_back(vx_world_get_buffer(new_world, "circle"),
-				vxo_chain(vxo_mat_translate3(37, 0, 15),
-				vxo_mat_scale3(.5, .5, 1),
-				vxo_circle(vxo_mesh_style(vx_white),
-				vxo_lines_style(transparent, 2.0f))));
-			vx_buffer_swap(vx_world_get_buffer(new_world, "circle"));
-
-			char statusText[64] = "";
 		
-			sprintf(statusText, "<<#ffffff>>Click the white dot to calibrate");
-		
-			vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, statusText);
-			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, text));
-			vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
-		}else{
-			vx_buffer_swap(vx_world_get_buffer(new_world, "circle"));
-			vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
-		}*/
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "board"), 
+			vxo_chain(vxo_mat_translate3(0,0,0),
+			vxo_mat_scale3(61, 61, 1),
+			vxo_rect(vxo_mesh_style(vx_gray),
+			vxo_lines_style(vx_gray, 2.0f),
+			vxo_points_style(vx_gray, 2.0f))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "board"));
 
 		usleep(25000);
 	}
@@ -752,6 +745,14 @@ void* render_view(void* data){
 			vxo_lines_style(vx_green, 2.0f),
 			vxo_points_style(vx_green, 2.0f)))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
+		
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "board"), 
+			vxo_chain(vxo_mat_translate3(0,-18,arm_zoom),
+			vxo_mat_scale3(61, 1, 61),
+			vxo_box(vxo_mesh_style(vx_gray),
+			vxo_lines_style(vx_gray, 2.0f),
+			vxo_points_style(vx_gray, 2.0f))));
+		vx_buffer_swap(vx_world_get_buffer(new_world, "board"));
 
 		usleep(25000);
 	}
@@ -784,23 +785,23 @@ void* render_status(void* data){
 	vx_layer_set_viewport_rel(layer, position);
 
 	while(gstate->running){		
-		char statusText[128] = "";
-		vx_object_t* text;
-		/*
-		sprintf(statusText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
-		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
-		*/
+		char angleText[128] = "";
+		char ballText[128] = "";
+		
+		sprintf(angleText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
+		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, texta));
+		
 		//pthread_mutex_lock(&ball_mutex);
-		sprintf(statusText, " %d Balls:\n", num_balls);
+		sprintf(ballText, " %d Balls:\n", num_balls);
 		for(int i = 0; i < num_balls; ++i) {
-		    sprintf(statusText +strlen(statusText), "%d ( %f, %f)\n", i,
+		    sprintf(ballText +strlen(ballText), "%d ( %f, %f)\n", i,
 			    balls[i].x, balls[i].y);
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
-		text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
+		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_LEFT, ballText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_LEFT, textb));
 
 		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));

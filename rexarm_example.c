@@ -112,12 +112,9 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 {
     pthread_mutex_lock(&cmd_mutex);
 
-    /*
     while(!new_cmd) { 
-	new_cmd = 0;
+	pthread_cond_wait(&cmd_cv, &cmd_mutex);
     }
-    */
-    pthread_cond_wait(&cmd_cv, &cmd_mutex);
 
     neverMoved = 0;
     dynamixel_command_list_t cmds;
@@ -147,9 +144,9 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	cmds.commands[id].speed = speed;
 	cmds.commands[id].max_torque = torque;
     }
-
     //Send it after get signal from status
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
+    new_cmd = 0;
 
     pthread_mutex_unlock(&cmd_mutex);
 
@@ -333,18 +330,18 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 
     pthread_mutex_lock(&cmd_mutex);
 
-    /*
     if(satisfied && !new_cmd){
 	printf("signaling\n");
 	new_cmd = 1;
 	pthread_cond_broadcast(&cmd_cv);
     }
-    */
+    /*
     if(satisfied){
 	//printf("signaling\n");
 	new_cmd = 1;
 	pthread_cond_broadcast(&cmd_cv);
     }
+    */
 
     //Set false after first time
     if(neverMoved) {

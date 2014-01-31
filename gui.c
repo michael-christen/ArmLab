@@ -778,9 +778,9 @@ void* render_view(void* data){
 		vx_buffer_swap(vx_world_get_buffer(new_world, "line"));
 
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "board"), 
-			vxo_chain(vxo_mat_translate3(0,-25,0),
+			vxo_chain(vxo_mat_translate3(0,-18,arm_zoom),
 			vxo_mat_scale3(61, 1, 61),
-			vxo_rect(vxo_mesh_style(vx_gray),
+			vxo_box(vxo_mesh_style(vx_gray),
 			vxo_lines_style(vx_gray, 2.0f),
 			vxo_points_style(vx_gray, 2.0f))));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "board"));
@@ -816,13 +816,14 @@ void* render_status(void* data){
 	vx_layer_set_viewport_rel(layer, position);
 
 	while(gstate->running){		
+		char angleText[128] = "";
 		char statusText[128] = "";
 		vx_object_t* text;
-		/*
-		sprintf(statusText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
-		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
-		*/
+		
+		sprintf(angleText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
+		vx_object_t* atext = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, atext));
+		
 		//pthread_mutex_lock(&ball_mutex);
 		sprintf(statusText, " %d Balls:\n", num_balls);
 		for(int i = 0; i < num_balls; ++i) {
@@ -831,8 +832,8 @@ void* render_status(void* data){
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
-		text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
+		text = vxo_text_create(VXO_TEXT_ANCHOR_LEFT, statusText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_LEFT, text));
 
 		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));

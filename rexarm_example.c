@@ -77,10 +77,13 @@ static int64_t utime_now()
 void getServoAngles(double *servos, double theta, double r, double height) {
 	const double yDisp = ARM_L4 + height - ARM_L1;
 	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
+	const double rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(ARM_L1 - height, 2));
 
 	servos[0] = theta;
 
-	if (r <= rCrit) {
+	if (r <= ARM_L2) {
+		//Implement close case
+	} else if (r > ARM_L2 && r <= rCrit) {
 		double h, tc, ta, tb;
 
 		h = sqrt(pow(r, 2) + pow(yDisp, 2));
@@ -91,8 +94,17 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		servos[1] = PI/2 - tc - ta;
 		servos[2] = PI - tb;
 		servos[3] = PI - servos[1] - servos[2];
-	} else {
-		// Implement stretch math
+	} else if (r > rCrit && r <= rCritFar) {
+		double h, t2a, t2b, t4a;
+
+		h =  sqrt(pow(r,2) + pow(ARM_L1 - height, 2));
+		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
+		t2a = asin(r / h);
+		t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ARM_L2 + ARM_L3, 2)) / (-2 * h * (ARM_L2 + ARM_L3)));
+
+		servos[1] = PI - t2a - t2b;
+		servos[2] = 0;
+		servos[3] = PI - t4a;
 	}
 }
 

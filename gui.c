@@ -42,8 +42,8 @@ double scalingFactors[6] = {1,0,0,0,1,0};
 //0,  0 , 0, px, py, 1
 double samples[3*NUM_SAMPLES_FOR_ISCALING];
 int numSamples = 0;
-pthread_mutex_t sample_mutex;
-pthread_cond_t sample_cv;
+pthread_mutex_t scaling_mutex;
+pthread_cond_t scaling_cv;
 
 int calib_cam = 0;	//Calibrating upper left quadrant
 double calib_positions[NUM_SERVOS] = {0, M_PI/2.0, 0, 0, 0, M_PI/2.0};
@@ -61,16 +61,19 @@ void* initScalingFactors(void *data) {
 	-14.9, 15.3,
 	-15.0, -0.2
     };
-    pthread_mutex_lock(&sample_mutex);
+    pthread_mutex_lock(&scaling_mutex);
 
-    pthread_cond_wait(&sample_cv, &sample_mutex);
+    while(numSamples < NUM_SAMPLES_FOR_ISCALING) {
+	pthread_cond_wait(&scaling_cv, &scaling_mutex);
+    }
+
     printf("\nInitializing Scaling Factors\n");
     //px, py, 1, 0,   0, 0
     //0,  0 , 0, px, py, 1
     //Samples
     matd_t *sample_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 3, samples);
 
-    pthread_mutex_unlock(&sample_mutex);
+    pthread_mutex_unlock(&scaling_mutex);
     //Positions
     matd_t *pos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, positions);
     //x = inv(trans(A)*A)*trans(A)*b
@@ -178,22 +181,22 @@ static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 	if(button_up){
 		vx_ray3_t ray;
 		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
-		vx_ray3_intersect_xy(&ray, 0.0, man_point);
-		pthread_mutex_lock(&sample_mutex);
+		vx_ray3_intersect_xy(&ray, camera_zoom, man_point);
+		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid
-		printf("x: %f, y: %f\n", man_point[0], man_point[1]);
+		printf("x: %f, y: %f, z: %f\n", man_point[0], man_point[1], man_point[2]);
 		if(calib_cam && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
 		    samples[numSamples*3] = man_point[0];
 		    samples[numSamples*3+1] = man_point[1];
 		    samples[numSamples*3+2] = 1;
 		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
-			pthread_cond_signal(&sample_cv);
+			pthread_cond_signal(&scaling_cv);
 		    }
 		    printf("NumSamples: %d\n", numSamples);
 		}
-		pthread_mutex_unlock(&sample_mutex);
+		pthread_mutex_unlock(&scaling_mutex);
 	}
 
     // Store the last mouse click
@@ -238,7 +241,7 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].temperature = DISPLAY_W;
 		stats.statuses[0].error_flags = 0;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
-		pthread_mutex_lock(&sample_mutex);
+		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid
 		if(calib_cam && mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
@@ -247,11 +250,11 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		    samples[numSamples*3+1] = mouse->y;
 		    samples[numSamples*3+2] = 1;
 		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
-			pthread_cond_signal(&sample_cv);
+			pthread_cond_signal(&scaling_cv);
 		    }
 		    printf("NumSamples: %d", numSamples);
 		}
-		pthread_mutex_unlock(&sample_mutex);
+		pthread_mutex_unlock(&scaling_mutex);
 	}
 
     // Store the last mouse click
@@ -801,13 +804,13 @@ void* render_status(void* data){
 		//pthread_mutex_lock(&ball_mutex);
 		sprintf(ballText, " %d Balls:\n", num_balls);
 		for(int i = 0; i < num_balls; ++i) {
-		    sprintf(ballText +strlen(ballText), "%d ( %f, %f)\n", i,
+		    sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
 			    balls[i].x, balls[i].y);
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
-		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_LEFT, ballText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_LEFT, textb));
+		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, ballText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, textb));
 
 		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));

@@ -80,10 +80,8 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 	const double rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(ARM_L1 - height, 2));
 
 	servos[0] = theta;
-
-	if (r <= ARM_L2) {
-		//Implement close case
-	} else if (r > ARM_L2 && r <= rCrit) {
+	printf("%f, %f, %f\n", r, rCrit, rCritFar);
+	if (r <= rCrit) {
 		double h, tc, ta, tb;
 
 		h = sqrt(pow(r, 2) + pow(yDisp, 2));
@@ -96,7 +94,7 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		servos[3] = PI - servos[1] - servos[2];
 	} else if (r > rCrit && r <= rCritFar) {
 		double h, t2a, t2b, t4a;
-
+		height += 2;
 		h =  sqrt(pow(r,2) + pow(ARM_L1 - height, 2));
 		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
 		t2a = asin(r / h);
@@ -106,6 +104,8 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		servos[2] = 0;
 		servos[3] = PI - t4a;
 	}
+	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
+
 }
 
 void openClawAngles(double *servos){
@@ -283,9 +283,7 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 	theta -= M_PI;
     }
     printf("r: %f\n", r);
-    if(r < 16.0){
 	pickUpBall(state, theta, r);
-    }
 }
 
 void* commandListener(void *data){

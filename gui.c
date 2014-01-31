@@ -35,6 +35,7 @@ const char *gui_channel;
 
 ball_t balls[MAX_NUM_BALLS];
 int num_balls;
+pthread_mutex_t ball_mutex;
 
 double scalingFactors[6] = {1,0,0,0,1,0};
 //px, py, 1, 0,   0, 0
@@ -51,14 +52,14 @@ void* initScalingFactors(void *data) {
     int i;
     //X, Y positions for calibration
     double positions[2*NUM_SAMPLES_FOR_ISCALING] = {
-	-0.3, 0.3,
-	 0  , 0.3,
-	 0.3, 0.3,
-	-0.3,   0,
-	 0.3,   0,
-	-0.3,-0.3,
-	 0  ,-0.3,
-	 0.3,-0.3 
+	-15.1, 14.9,
+	0.2,   15.3,
+	14.9,  15.1,
+	15.3,  -0.6,
+	15.3,  -15,
+	-0.1,  -15.3,
+	-14.9, -15.3,
+	-15.0, 0.2
     };
     pthread_mutex_lock(&sample_mutex);
 
@@ -89,8 +90,14 @@ void* initScalingFactors(void *data) {
 
     temp2_mat = matd_multiply(temp_mat, pos_mat);
     
+    printf("Position matrix\n");
+    matd_print(pos_mat, " %lf ");
+
+    printf("Sample matrix\n");
+    matd_print(sample_mat, " %lf ");
+
     for(i = 0; i < 6; ++i) {
-	scalingFactors[i] = matd_get(temp2_mat,i/2,i%2);
+	scalingFactors[i] = matd_get(temp2_mat,i%3,i/3);
 	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
     }
 
@@ -149,6 +156,53 @@ static int64_t utime_now()
     return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
+static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_pos_t *pos, vx_mouse_event_t *mouse)
+{
+    event_state_t *state = vh->impl;
+
+    // Stack allocate the most recent mouse event, so we can return from this function at any time
+    vx_mouse_event_t last_mouse;
+    if (state->init_last) {
+        memcpy(&last_mouse, &state->last_mouse, sizeof(vx_mouse_event_t));
+        memcpy(&state->last_mouse, mouse, sizeof(vx_mouse_event_t));
+    } else {
+        memcpy(&state->last_mouse, mouse, sizeof(vx_mouse_event_t));
+        state->init_last = 1;
+        return 0;
+    }
+
+    int diff_button = mouse->button_mask ^ last_mouse.button_mask;
+    //int button_down = diff_button & mouse->button_mask; // which button(s) just got pressed?
+    int button_up = diff_button & last_mouse.button_mask; // which button(s) just got released?
+    double man_point[3];
+	if(button_up){
+		vx_ray3_t ray;
+		vx_camera_pos_compute_ray(pos, mouse->x, mouse->y, &ray);
+		vx_ray3_intersect_xy(&ray, 0.0, man_point);
+		pthread_mutex_lock(&sample_mutex);
+		//Clicked in camera area
+		//Not valid
+		printf("x: %f, y: %f\n", man_point[0], man_point[1]);
+		if(calib_cam && numSamples < NUM_SAMPLES_FOR_ISCALING) {
+		    //???Need to convert this to picture pixels 
+		    samples[numSamples*3] = man_point[0];
+		    samples[numSamples*3+1] = man_point[1];
+		    samples[numSamples*3+2] = 1;
+		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
+			pthread_cond_signal(&sample_cv);
+		    }
+		    printf("NumSamples: %d\n", numSamples);
+		}
+		pthread_mutex_unlock(&sample_mutex);
+	}
+
+    // Store the last mouse click
+    state->x = mouse->x;
+    state->y = mouse->y;
+
+    return 0; // Returning 0 says that you have consumed the event. If the event is not consumed (return 1), then it is passed down the chain to the other event handlers.
+}
+
 static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_pos_t *pos, vx_mouse_event_t *mouse)
 {
     event_state_t *state = vh->impl;
@@ -182,17 +236,12 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		stats.statuses[0].load = man_point[1];
 		stats.statuses[0].voltage = DISPLAY_H;
 		stats.statuses[0].temperature = DISPLAY_W;
-		if(calib_cam){
-			stats.statuses[0].error_flags = 3;
-			calib_cam = 0;
-		}else{
-			stats.statuses[0].error_flags = 0;
-		}
+		stats.statuses[0].error_flags = 0;
 		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
 		pthread_mutex_lock(&sample_mutex);
 		//Clicked in camera area
 		//Not valid
-		if(mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
+		if(calib_cam && mouse->x > 500 && mouse->y > 380 && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
 		    samples[numSamples*3] = mouse->x;
 		    samples[numSamples*3+1] = mouse->y;
@@ -253,7 +302,7 @@ void* render_camera(void *data)
 	my_event_handler->dispatch_order = 0; // Lower number here means that you get higher priority in processing events.
 	my_event_handler->impl = event_state;
 	my_event_handler->destroy = eh_destroy;
-	my_event_handler->mouse_event = custom_mouse_event;
+	my_event_handler->mouse_event = camera_mouse_event;
 
 	zhash_iterator_t it;
 	zhash_iterator_init(gstate->layers, &it);
@@ -306,8 +355,10 @@ void* render_camera(void *data)
                 // Handle frame
                 image_u32_t *im = image_convert_u32(frmd);
 
+		//pthread_mutex_lock(&ball_mutex);
 		num_balls = blob_detection(im, balls);
 		transform_balls();
+		//pthread_mutex_unlock(&ball_mutex);
 		
 		/*if(num_balls) {
 		    printf("%d Balls\n", num_balls);
@@ -322,8 +373,13 @@ void* render_camera(void *data)
 
                 if (im != NULL) {
 
+		    /*
                     vx_object_t *vim = vxo_image_from_u32(im,
                                                           VXO_IMAGE_FLIPY,
+                                                          VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
+							  */
+                    vx_object_t *vim = vxo_image_from_u32(im,
+                                                          0,
                                                           VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
 
                     vx_buffer_add_back(vx_world_get_buffer(new_world, "image"),
@@ -481,15 +537,17 @@ vx_object_t* renderClaw(int above, Arm_t* arm){
 }
 
 void renderBalls(int above, vx_world_t* world) {
-    num_balls = 2;
+    //pthread_mutex_unlock(&ball_mutex);
     ball_t currentBall;
     vx_object_t *ball;
     int i;
     for(i=0; i < num_balls; ++i) {
+	/*
 		currentBall.x = 5 + i*5; 
 		currentBall.y = 5;
 		currentBall.num_px = 150;
 		balls[i] = currentBall; 
+		*/
 		ball = vxo_chain(
 			vxo_mat_rotate_x(above*M_PI/2.0),
 			vxo_mat_translate3(balls[i].x,15*~above + 33*above,balls[i].y),
@@ -498,6 +556,7 @@ void renderBalls(int above, vx_world_t* world) {
 		);
 		vx_buffer_add_back(vx_world_get_buffer(world, "balls"), ball);	
     }
+    //pthread_mutex_unlock(&ball_mutex);
 
     vx_buffer_swap(vx_world_get_buffer(world, "balls"));
 }
@@ -758,11 +817,24 @@ void* render_status(void* data){
 
 	while(gstate->running){		
 		char statusText[128] = "";
-		
+		vx_object_t* text;
+		/*
 		sprintf(statusText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
-		
 		vx_object_t* text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
+		*/
+		//pthread_mutex_lock(&ball_mutex);
+		sprintf(statusText, " %d Balls:\n", num_balls);
+		for(int i = 0; i < num_balls; ++i) {
+		    sprintf(statusText +strlen(statusText), "%d ( %f, %f)\n", i,
+			    balls[i].x, balls[i].y);
+		}
+		//pthread_mutex_lock(&ball_mutex);
+		//printf("%s", statusText);
+		text = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, statusText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, text));
+
+		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		usleep(25000);
 	}

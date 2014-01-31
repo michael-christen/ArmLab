@@ -23,11 +23,11 @@
 
 #define NUM_SERVOS 6
 #define _USE_MATH_DEFINES //PI
-#define ARM_L1 11
+#define ARM_L1 11.5
 #define ARM_L2 10
 #define ARM_L3 10
 #define ARM_L4 18
-#define RADIAN_ERROR 0.01
+#define RADIAN_ERROR 0.05
 
 typedef struct state state_t;
 struct state
@@ -128,6 +128,10 @@ int armIsMoving(){
 
 void* sendCommand(state_t* state, double theta, double r, double height, int clawOpen, double speed, double torque) 
 {
+    pthread_mutex_lock(&sample_mutex);
+
+    pthread_cond_wait(&sample_cv, &sample_mutex);
+
     neverMoved = 0;
     dynamixel_command_list_t cmds;
     cmds.len = NUM_SERVOS;
@@ -155,9 +159,6 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	cmds.commands[id].speed = speed;
 	cmds.commands[id].max_torque = torque;
     }
-    pthread_mutex_lock(&sample_mutex);
-
-    pthread_cond_wait(&sample_cv, &sample_mutex);
 
     //Send it after get signal from status
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
@@ -181,9 +182,9 @@ void pickUpBall(state_t* state, double theta, double r){
     printf("1\n");
     sendCommand(state, theta, r, 8, 1, .7, .5);
     printf("2\n");
-    sendCommand(state, theta, r, 0, 1, .5, .5);
+    sendCommand(state, theta, r, 1, 1, .5, .5);
     printf("3\n");
-    sendCommand(state, theta, r, 0, 0, .7, .5);
+    sendCommand(state, theta, r, 1, 0, .7, .5);
     printf("4\n");
     sendCommand(state, theta, r, 8, 0, .7, .5);	
     printf("Finish\n");
@@ -332,25 +333,24 @@ void status_handler(const lcm_recv_buf_t *rbuf,
     }
     int satisfied = 1;
     for (id = 0; id < NUM_SERVOS; id++) {
-	printf("global pos %d: %f, cur pos %f\n", id,
-		global_cmds.commands[id].position_radians,
-		position_radians[id]);
 	//If all servos aren't in position
 	double error = getError(
 		global_cmds.commands[id].position_radians,
 		position_radians[id]
 	);
-	printf ("Error: %f\n", error);
 	if(error > RADIAN_ERROR) {
 	    printf("NOT SATISFIED\n");
+	    printf("global pos %d: %f, cur pos %f\n", id,
+		    global_cmds.commands[id].position_radians,
+		    position_radians[id]);
 	    satisfied = 0;
 	    break;
 	}
     }
 
     pthread_mutex_lock(&sample_mutex);
-    if(!satisfied){
-	printf("signaling\n");
+    if(satisfied){
+	//printf("signaling\n");
 	pthread_cond_signal(&sample_cv);
     }
     pthread_mutex_unlock(&sample_mutex);

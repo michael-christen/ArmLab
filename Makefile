@@ -19,7 +19,7 @@ $(REXARM_DRIVER): rexarm_driver.o
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 
-$(REXARM_EXAMPLE): rexarm_example.o gui.o eecs467_util.o blob_detection.o disjoint.o
+$(REXARM_EXAMPLE): rexarm_example.o gui.o eecs467_util.o blob_detection.o disjoint.o lcmtypes/ball_info_t.c lcmtypes/ball_list_t.c
 	@echo "\t$@"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 

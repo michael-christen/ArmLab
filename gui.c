@@ -32,6 +32,7 @@ double servo_positions[NUM_SERVOS];
 
 lcm_t *lcm;
 const char *gui_channel;
+const char *ball_channel;
 
 ball_t balls[MAX_NUM_BALLS];
 int num_balls;
@@ -347,15 +348,20 @@ void* render_camera(void *data)
 		transform_balls();
 		//pthread_mutex_unlock(&ball_mutex);
 		
-		/*if(num_balls) {
-		    printf("%d Balls\n", num_balls);
+		if(num_balls) {
+		    ball_list_t ball_list;
+		    ball_list.len = num_balls;
+		    ball_list.balls = malloc(sizeof(ball_info_t) * num_balls);
+
 		    for(int i = 0; i < num_balls; ++i) {
-			printf("X: %f, Y: %f, pxs: %d\n",
-				balls[i].x, 
-				balls[i].y, 
-				balls[i].num_px);
+				ball_list.balls[i].utime = utime_now();		    
+				ball_list.balls[i].x = balls[i].x;
+				ball_list.balls[i].y = balls[i].y; 
+				ball_list.balls[i].num_pxs = balls[i].num_px;
 		    }
-		}*/
+		    
+		    ball_list_t_publish(lcm, ball_channel, &ball_list);
+		}
 		
 
                 if (im != NULL) {
@@ -820,6 +826,7 @@ void* gui_create(int argc, char **argv){
     getopt_add_bool(gstate->gopt, 'h', "help", 0, "Show help");
     getopt_add_string(gstate->gopt, '\0', "url", "", "Camera URL");
 	getopt_add_string(gstate->gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
+		getopt_add_string(gstate->gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
 	getopt_add_bool(gstate->gopt, 'c', "camera", 0, "laptop");
 
 
@@ -843,6 +850,7 @@ void* gui_create(int argc, char **argv){
 
 	lcm = lcm_create(NULL);
 	gui_channel = getopt_get_string(gstate->gopt, "gui-channel");
+	ball_channel = getopt_get_string(gstate->gopt, "ball-channel");
 
     // Set up the imagesource. This looks for a camera url specified on
     // the command line and, if none is found, enumerates a list of all

@@ -13,6 +13,8 @@
 #include "lcmtypes/dynamixel_command_t.h"
 #include "lcmtypes/dynamixel_status_list_t.h"
 #include "lcmtypes/dynamixel_status_t.h"
+#include "lcmtypes/ball_list_t.h"
+#include "lcmtypes/ball_info_t.h"
 
 #include "common/dynamixel_device.h"
 #include "common/dynamixel_serial_bus.h"
@@ -27,7 +29,8 @@
 #define ARM_L2 10
 #define ARM_L3 10
 #define ARM_L4 18
-#define RADIAN_ERROR 0.05
+#define ARM_CLAW_WIDTH 5
+#define RADIAN_ERROR 0.08
 
 typedef struct state state_t;
 struct state
@@ -38,6 +41,7 @@ struct state
     const char *lcm_channel;
     const char *status_channel;
     const char *gui_channel;
+    const char *ball_channel;
 
     pthread_t lcm_handle_thread;
     pthread_t command_thread;
@@ -76,7 +80,9 @@ static int64_t utime_now()
 
 void getServoAngles(double *servos, double theta, double r, double height) {
 	const double yDisp = ARM_L4 + height - ARM_L1;
-	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
+	const double rCritHeight = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
+	const double rCritAngle = (ARM_L2 + ARM_L3) * cos(0.5792);
+	const double rCrit = rCritHeight < rCritAngle ? rCritHeight : rCritAngle;
 	const double rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(ARM_L1 - height, 2));
 
 	servos[0] = theta;
@@ -94,7 +100,7 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		servos[3] = PI - servos[1] - servos[2];
 	} else if (r > rCrit && r <= rCritFar) {
 		double h, t2a, t2b, t4a;
-		height += 2;
+		height += ARM_CLAW_WIDTH * ((r - rCrit) / (rCritFar - rCrit));
 		h =  sqrt(pow(r,2) + pow(ARM_L1 - height, 2));
 		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
 		t2a = asin(r / h);
@@ -138,7 +144,6 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	positions[i] = cur_positions[i];
     }
     positions[4] = 0;
-
     //Inits positions to desired theta, r, height
     getServoAngles(positions, theta, r, height);
 
@@ -177,13 +182,13 @@ void closeClaw(state_t* state, double theta, double r, double height){
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
     printf("1\n");
-    sendCommand(state, theta, r, 8, 1, .7, .5);
+    sendCommand(state, theta, r, 6, 1, .2, .7);
     printf("2\n");
-    sendCommand(state, theta, r, 1, 1, .5, .5);
+    sendCommand(state, theta, r, 2, 1, .2, .7);
     printf("3\n");
-    sendCommand(state, theta, r, 1, 0, .7, .5);
+    sendCommand(state, theta, r, 2, 0, .2, .7);
     printf("4\n");
-    sendCommand(state, theta, r, 8, 0, .7, .5);	
+    sendCommand(state, theta, r, 6, 0, .2, .7);	
     printf("Finish\n");
 }
 
@@ -217,6 +222,14 @@ static void lcm_delegator( const lcm_recv_buf_t *rbuf,
     } 
 }
 
+static void ball_positions_handler( const lcm_recv_buf_t *rbuf,
+                           const char *channel,
+                           const ball_list_t *msg,
+                           void *user)
+{
+    printf("Num balls: %d\n", msg->len);
+}
+
 void* lcm_handle_loop(void *data)
 {
     state_t *state = data;
@@ -229,6 +242,13 @@ void* lcm_handle_loop(void *data)
     dynamixel_status_list_t_subscribe(state->lcm,
 	    state->gui_channel,
 	    lcm_delegator,
+	    state
+    );
+    
+    //receive clicks
+    ball_list_t_subscribe(state->lcm,
+	    state->ball_channel,
+	    ball_positions_handler,
 	    state
     );
 
@@ -329,10 +349,10 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 		position_radians[id]
 	);
 	if(error > RADIAN_ERROR) {
-	    printf("NOT SATISFIED\n");
-	    printf("global pos %d: %f, cur pos %f\n", id,
-		    global_cmds.commands[id].position_radians,
-		    position_radians[id]);
+	    //printf("NOT SATISFIED\n");
+	    //printf("global pos %d: %f, cur pos %f\n", id,
+		    //global_cmds.commands[id].position_radians,
+		    //position_radians[id]);
 	    satisfied = 0;
 	    break;
 	}
@@ -388,6 +408,7 @@ int main(int argc, char **argv)
     getopt_add_string(gopt, '\0', "command-channel", "ARM_COMMAND", "LCM command channel");
 	//getopt_add_string(gopt, '\0', "command-mail-channel","COMMAND_MAIL", "LCM command mail channel");
 	getopt_add_string(gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
+	getopt_add_string(gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
 	getopt_add_bool(gopt, 'c', "camera", 0, "laptop");
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
@@ -408,6 +429,7 @@ int main(int argc, char **argv)
 
     printf("Status_ch: %s\n",state->status_channel);
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
+	state->ball_channel = getopt_get_string(gopt, "ball-channel");
 
     //Handles incoming lcm messages and redirects to commandListener
     //or status Listener

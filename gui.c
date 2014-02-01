@@ -59,7 +59,7 @@ void* initScalingFactors(void *data) {
 	15.3,  15,
 	-0.1,  15.3,
 	-14.9, 15.3,
-	-15.0, -0.2
+	-15.0, -0.2 
     };
     pthread_mutex_lock(&scaling_mutex);
 
@@ -77,21 +77,7 @@ void* initScalingFactors(void *data) {
     //Positions
     matd_t *pos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, positions);
     //x = inv(trans(A)*A)*trans(A)*b
-    //x = 
-    //matd_t * sol_mat = matd_op("(A' * A)^-1 * A' * b", sample_mat, pos_mat);
-    matd_t *trans_mat = matd_transpose(sample_mat);
-    matd_t *temp_mat = matd_multiply(trans_mat, sample_mat);
-    matd_print(temp_mat," %lf ");
-    //???This is breaking
-    matd_t *temp2_mat = matd_inverse(temp_mat);
-    
-    matd_destroy(temp_mat);
-
-    temp_mat = matd_multiply(temp2_mat, trans_mat);
-
-    matd_destroy(temp2_mat);
-
-    temp2_mat = matd_multiply(temp_mat, pos_mat);
+    matd_t * sol_mat = matd_op("(M' * M)^-1 * M' * M", sample_mat,sample_mat,sample_mat, pos_mat);
     
     printf("Position matrix\n");
     matd_print(pos_mat, " %lf ");
@@ -100,16 +86,14 @@ void* initScalingFactors(void *data) {
     matd_print(sample_mat, " %lf ");
 
     for(i = 0; i < 6; ++i) {
-	scalingFactors[i] = matd_get(temp2_mat,i%3,i/3);
+	scalingFactors[i] = matd_get(sol_mat,i%3,i/3);
 	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
     }
 
     //Clean up
     matd_destroy(sample_mat);
     matd_destroy(pos_mat);
-    matd_destroy(temp2_mat);
-    matd_destroy(temp_mat);
-    matd_destroy(trans_mat);
+    matd_destroy(sol_mat);
     printf("Scaling Factors initialized\n");
     return NULL;
 }
@@ -559,7 +543,8 @@ void renderBalls(int above, vx_world_t* world) {
 		*/
 		ball = vxo_chain(
 			vxo_mat_rotate_x(above*M_PI/2.0),
-			vxo_mat_translate3(balls[i].x,15*~above + 33*above,balls[i].y),
+			vxo_mat_translate3(balls[i].x,15*~above +
+			    33*above,balls[i].y),
 			vxo_mat_scale3(3,3,3),
 			vxo_sphere(vxo_mesh_style(vx_yellow))
 		);

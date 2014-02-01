@@ -80,9 +80,10 @@ static int64_t utime_now()
 void getServoAngles(double *servos, double theta, double r, double height) {
 	const double yDisp = ARM_L4 + height - ARM_L1;
 	const double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
+	const double rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(ARM_L1 - height, 2));
 
 	servos[0] = theta;
-
+	printf("%f, %f, %f\n", r, rCrit, rCritFar);
 	if (r <= rCrit) {
 		double h, tc, ta, tb;
 
@@ -94,9 +95,20 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		servos[1] = PI/2 - tc - ta;
 		servos[2] = PI - tb;
 		servos[3] = PI - servos[1] - servos[2];
-	} else {
-		// Implement stretch math
+	} else if (r > rCrit && r <= rCritFar) {
+		double h, t2a, t2b, t4a;
+		height += 2;
+		h =  sqrt(pow(r,2) + pow(ARM_L1 - height, 2));
+		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
+		t2a = asin(r / h);
+		t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ARM_L2 + ARM_L3, 2)) / (-2 * h * (ARM_L2 + ARM_L3)));
+
+		servos[1] = PI - t2a - t2b;
+		servos[2] = 0;
+		servos[3] = PI - t4a;
 	}
+	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
+
 }
 
 void openClawAngles(double *servos){
@@ -115,12 +127,9 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 {
     pthread_mutex_lock(&cmd_mutex);
 
-    /*
     while(!new_cmd) { 
-	new_cmd = 0;
+	pthread_cond_wait(&cmd_cv, &cmd_mutex);
     }
-    */
-    pthread_cond_wait(&cmd_cv, &cmd_mutex);
 
     neverMoved = 0;
     dynamixel_command_list_t cmds;
@@ -150,9 +159,9 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	cmds.commands[id].speed = speed;
 	cmds.commands[id].max_torque = torque;
     }
-
     //Send it after get signal from status
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
+    new_cmd = 0;
 
     pthread_mutex_unlock(&cmd_mutex);
 
@@ -277,9 +286,7 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 	theta -= M_PI;
     }
     printf("r: %f\n", r);
-    if(r < 16.0){
 	pickUpBall(state, theta, r);
-    }
 }
 
 void* commandListener(void *data){
@@ -336,18 +343,18 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 
     pthread_mutex_lock(&cmd_mutex);
 
-    /*
     if(satisfied && !new_cmd){
 	printf("signaling\n");
 	new_cmd = 1;
 	pthread_cond_broadcast(&cmd_cv);
     }
-    */
+    /*
     if(satisfied){
 	//printf("signaling\n");
 	new_cmd = 1;
 	pthread_cond_broadcast(&cmd_cv);
     }
+    */
 
     //Set false after first time
     if(neverMoved) {

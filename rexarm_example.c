@@ -15,6 +15,7 @@
 #include "lcmtypes/dynamixel_status_t.h"
 #include "lcmtypes/ball_list_t.h"
 #include "lcmtypes/ball_info_t.h"
+#include "lcmtypes/arm_action_t.h"
 
 #include "common/dynamixel_device.h"
 #include "common/dynamixel_serial_bus.h"
@@ -42,6 +43,7 @@ struct state
     const char *status_channel;
     const char *gui_channel;
     const char *ball_channel;
+    const char *action_channel;
 
     pthread_t lcm_handle_thread;
     pthread_t command_thread;
@@ -68,6 +70,9 @@ pthread_cond_t status_cv, status_exit_cv;
 
 dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
+
+ball_info_t balls[MAX_NUM_BALLS];
+int num_balls, gettingBalls, balls_left;
 
 double UL_scaling_factor = 4.594595;
 
@@ -227,7 +232,38 @@ static void ball_positions_handler( const lcm_recv_buf_t *rbuf,
                            const ball_list_t *msg,
                            void *user)
 {
-    printf("Num balls: %d\n", msg->len);
+    num_balls = msg->len;
+    int i;
+    for (i = 0; i < num_balls; i++) {
+        balls[i].x = msg->balls[i].x;
+        balls[i].y = msg->balls[i].y;
+        balls[i].num_pxs = msg->balls[i].num_pxs;
+    } 
+}
+
+static void arm_action_handler( const lcm_recv_buf_t *rbuf,
+                           const char *channel,
+                           const arm_action_t *msg,
+                           void *user)
+{
+    if (msg->getBalls) {
+        printf("Received message to get teh ballzz\n");
+        gettingBalls = 1;
+        
+        pthread_mutex_lock(&command_mutex);
+
+	    command_msg->len = 1;
+	    //command_msg->statuses = malloc(sizeof(dynamixel_status_t));
+        command_msg->statuses[0].speed = balls[0].x;
+        command_msg->statuses[0].load = balls[0].y;
+        pthread_cond_signal(&command_cv);
+
+        pthread_mutex_unlock(&command_mutex);
+        
+    } else {
+        printf("K, stop getting teh ballz\n");
+        gettingBalls = 0;
+    }
 }
 
 void* lcm_handle_loop(void *data)
@@ -245,10 +281,17 @@ void* lcm_handle_loop(void *data)
 	    state
     );
     
-    //receive clicks
+    //receive ball positions
     ball_list_t_subscribe(state->lcm,
 	    state->ball_channel,
 	    ball_positions_handler,
+	    state
+    );
+    
+    //receive arm actions
+    arm_action_t_subscribe(state->lcm,
+	    state->action_channel,
+	    arm_action_handler,
 	    state
     );
 
@@ -409,13 +452,17 @@ int main(int argc, char **argv)
 	//getopt_add_string(gopt, '\0', "command-mail-channel","COMMAND_MAIL", "LCM command mail channel");
 	getopt_add_string(gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
 	getopt_add_string(gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
+		getopt_add_string(gopt, '\0', "action-channel", "ARM_ACTION", "Arm action channel");
 	getopt_add_bool(gopt, 'c', "camera", 0, "laptop");
+	command_msg = malloc(sizeof(dynamixel_status_list_t));
+	command_msg->statuses = malloc(sizeof(dynamixel_status_t));
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
         getopt_do_usage(gopt);
         exit(-1);
     }
-
+    
+    gettingBalls = 0;
     new_cmd = 0;
     state_t *state = malloc(sizeof(state_t));
     state->lcm = lcm_create(NULL);
@@ -430,6 +477,7 @@ int main(int argc, char **argv)
     printf("Status_ch: %s\n",state->status_channel);
 	state->gui_channel = getopt_get_string(gopt, "gui-channel");
 	state->ball_channel = getopt_get_string(gopt, "ball-channel");
+	state->action_channel = getopt_get_string(gopt, "action-channel");
 
     //Handles incoming lcm messages and redirects to commandListener
     //or status Listener

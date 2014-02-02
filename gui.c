@@ -33,6 +33,7 @@ double servo_positions[NUM_SERVOS];
 lcm_t *lcm;
 const char *gui_channel;
 const char *ball_channel;
+const char *action_channel;
 
 ball_t balls[MAX_NUM_BALLS];
 int num_balls;
@@ -132,6 +133,14 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
     } else if (!strcmp("but1", name)){
 		//camera_show = pg_gb(pg, name);
 		calib_cam = ~calib_cam;
+	} else if (!strcmp("but2", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 1;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	} else if (!strcmp("but3", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 0;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	} else {
         printf("%s changed\n", name);
     }
@@ -826,7 +835,8 @@ void* gui_create(int argc, char **argv){
     getopt_add_bool(gstate->gopt, 'h', "help", 0, "Show help");
     getopt_add_string(gstate->gopt, '\0', "url", "", "Camera URL");
 	getopt_add_string(gstate->gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
-		getopt_add_string(gstate->gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
+	getopt_add_string(gstate->gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
+	getopt_add_string(gstate->gopt, '\0', "action-channel", "ARM_ACTION", "Arm action channel");
 	getopt_add_bool(gstate->gopt, 'c', "camera", 0, "laptop");
 
 
@@ -851,6 +861,7 @@ void* gui_create(int argc, char **argv){
 	lcm = lcm_create(NULL);
 	gui_channel = getopt_get_string(gstate->gopt, "gui-channel");
 	ball_channel = getopt_get_string(gstate->gopt, "ball-channel");
+	action_channel = getopt_get_string(gstate->gopt, "action-channel");
 
     // Set up the imagesource. This looks for a camera url specified on
     // the command line and, if none is found, enumerates a list of all
@@ -913,6 +924,14 @@ void* gui_create(int argc, char **argv){
                        NULL);*/
     pg_add_buttons(pg,
                    "but1", "Calibrate Camera",
+                   NULL);
+                   
+    pg_add_buttons(pg,
+                   "but2", "Get Balls",
+                   NULL);
+                   
+    pg_add_buttons(pg,
+                   "but3", "Stop Getting Balls",
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t));

@@ -53,6 +53,8 @@ struct state
     
     ball_info_t balls[MAX_NUM_BALLS];
     volatile int gettingBalls, num_balls, balls_left;
+
+    double cur_x, cur_y;
 };
 
 double cur_speeds[NUM_SERVOS];
@@ -177,6 +179,8 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     while(!new_cmd) { 
 	pthread_cond_wait(&cmd_cv, &cmd_mutex);
     }
+    state->cur_x = cos(theta) * r;
+    state->cur_y = sin(theta) * r;
 
     neverMoved = 0;
     dynamixel_command_list_t cmds;
@@ -390,44 +394,65 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 	pickUpBall(state, theta, r);
 }
 
+double calc_dist(double x1, double y1, double x2, double y2) {
+    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
+}
+
+ball_info_t getNextBall(state_t * state) {
+    int num_balls = state->num_balls;
+    assert(num_balls > 0);
+    ball_info_t max_ball = state->balls[0];
+    double min_dist = calc_dist(state->cur_x, state->cur_y, max_ball.x, max_ball.y);
+    double cur_dist;
+    for(int i = 1; i < num_balls; ++i) {
+	cur_dist = calc_dist(state->cur_x, state->cur_y,
+		state->balls[i].x, state->balls[i].y);
+	if( cur_dist < min_dist) {
+	    max_ball = state->balls[i];
+	}
+    }
+    return max_ball; 
+}
+
 void* commandListener(void *data){
 	state_t* state = data;
 	while(1) {
 	    //printf("%d\n", state->gettingBalls);
 	    if (state->gettingBalls == 1 && state->balls_left > 0) {
-	        
-	        printf("Balls left: %d\n", state->balls_left);
-	        state->balls_left--;
-	        if (state->balls_left <= 0) {
-	            state->gettingBalls = 0;
-            }
-	        pthread_mutex_lock(&command_mutex);
 
-	        double x, y;
-            x = state->balls[0].x;
-            y = -1 * state->balls[0].y;
+		printf("Balls left: %d\n", state->balls_left);
+		state->balls_left--;
+		if (state->balls_left <= 0) {
+		    state->gettingBalls = 0;
+		}
+		pthread_mutex_lock(&command_mutex);
 
-            double r = sqrt(pow(x, 2) + pow(y, 2));
-            double theta = atan(y/x);
+		double x, y;
+		ball_info_t curBall = getNextBall(state);
+		x = curBall.x;
+		y = -1 * curBall.y;
 
-            if(x < 0 && y > 0){
-	        theta += M_PI;
-            }
-            if(x < 0 && y < 0){
-	        theta -= M_PI;
-            }
-            printf("x: %f, y: %f, r: %f\n", x, y, r);
-	        pickUpBall(state, theta, r);
-	        dropBall(state, (3 * PI) / 4, 28);
+		double r = sqrt(pow(x, 2) + pow(y, 2));
+		double theta = atan(y/x);
 
-            pthread_mutex_unlock(&command_mutex);
-        }
+		if(x < 0 && y > 0){
+		    theta += M_PI;
+		}
+		if(x < 0 && y < 0){
+		    theta -= M_PI;
+		}
+		printf("x: %f, y: %f, r: %f\n", x, y, r);
+		pickUpBall(state, theta, r);
+		dropBall(state, (3 * PI) / 4, 28);
+
+		pthread_mutex_unlock(&command_mutex);
+	    }
 	    /*pthread_mutex_lock(&command_mutex);
-	    pthread_cond_wait(&command_cv, &command_mutex);
+	      pthread_cond_wait(&command_cv, &command_mutex);
 
-	    click_handler(command_rbuf, command_msg, state);
+	      click_handler(command_rbuf, command_msg, state);
 
-	    pthread_mutex_unlock(&command_mutex);*/
+	      pthread_mutex_unlock(&command_mutex);*/
 	}
 	return NULL;
 }
@@ -540,6 +565,8 @@ int main(int argc, char **argv)
 	//state->command_mail_channel = getopt_get_string(gopt, "command-mail-channel");
     state->status_channel = getopt_get_string(gopt, "status-channel");
     state->lcm_channel = "lcm-channel";
+    state->cur_x = 0;
+    state->cur_y = 0;
 
     global_cmds.len = NUM_SERVOS;
     global_cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);

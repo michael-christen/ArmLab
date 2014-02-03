@@ -39,9 +39,11 @@ ball_t balls[MAX_NUM_BALLS];
 int num_balls;
 pthread_mutex_t ball_mutex;
 
+//These are variables for the equation
+// x = ax + by + c, y = dx + ey + f
 double scalingFactors[6] = {1,0,0,0,1,0};
-//px, py, 1, 0,   0, 0
-//0,  0 , 0, px, py, 1
+//Pixel samples
+//px, py, 1
 double samples[3*NUM_SAMPLES_FOR_ISCALING];
 int numSamples = 0;
 pthread_mutex_t scaling_mutex;

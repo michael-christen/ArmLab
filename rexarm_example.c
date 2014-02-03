@@ -84,97 +84,77 @@ static int64_t utime_now()
 }
 
 void getServoAngles(double *servos, double theta, double r, double height) {
-	double yDisp, h, t2a, t2b, t3a, t4a, rCritHeight, rCritHeightAngle, rCrit, rCritFar;
-	
 	if (height < ARM_L1) {
-        rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(ARM_L1 - height, 2));
-    } else {
-    	rCritFar = sqrt(pow(ARM_L2 + ARM_L3 + ARM_L4, 2) - pow(height - ARM_L1, 2));
-	}
-	
-	if (r < rCrit || (r >= rCrit && height >= ARM_L1)) {
+        double rCritDueToHeight, rCritDueToAngle, rCrit;
+
+        rCritDueToHeight = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4 + height - ARM_L1, 2));
+        rCritDueToAngle = (ARM_L2 + ARM_L3) * cos(0.5792);
+        rCrit = rCritDueToHeight < rCritDueToAngle ? rCritDueToHeight : rCritDueToAngle;
+
+        // Set base servo angle
+        servos[0] = theta;
+
         if (r < rCrit) {
+            // height < ARM_L1 && r < rCrit
+            double yDisp, h, t2a, t2b, t3a;
+
             yDisp = ARM_L4 + height - ARM_L1;
-        } else {
-            height += ARM_CLAW_WIDTH * ((r - rCrit) / (rCritFar - rCrit));
-            yDisp = height - ARM_L1;
-        }
-    } else {
-        height += ARM_CLAW_WIDTH * ((r - rCrit) / (rCritFar - rCrit));
-        yDisp = ARM_L1 - height;
-    }
-	
-	rCritHeight = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(yDisp, 2));
-	rCritHeightAngle = (ARM_L2 + ARM_L3) * cos(0.5792);
-	rCrit = rCritHeight < rCritHeightAngle ? rCritHeight : rCritHeightAngle;
-
-	servos[0] = theta;
-    if (r < rCrit || (r >= rCrit && height >= ARM_L1)) {
-        if (r < rCrit) {
-    		h = sqrt(pow(r, 2) + pow(yDisp, 2));
-	        t2a = atan(yDisp / r);
-            t2b = acos((pow(ARM_L3, 2) - pow(ARM_L2, 2) - pow(h, 2)) / (-2 * ARM_L2 * h));
-    		t3a = acos((pow(h, 2) - pow(ARM_L2, 2) - pow(ARM_L3, 2)) / (-2 * ARM_L2 * ARM_L3));
-    		
-    		servos[1] = PI - t2a - t2b;
-    		servos[2] = PI - t3a;
-    		servos[3] = PI - servos[1] - servos[2];
-        } else {
-            
-    		h = sqrt(pow(r, 2) + pow(yDisp, 2));
+            h = sqrt(pow(r, 2) + pow(yDisp, 2));
             t2a = atan(yDisp / r);
-    		t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ARM_L2 + ARM_L3, 2)) / (-2 * h * (ARM_L2 + ARM_L3)));
-    		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
-    		
-    		servos[1] = PI - t2a - t2b;
-    		servos[2] = 0;
-    		servos[3] = PI - t4a;
+            t2b = acos((pow(ARM_L3, 2) - pow(ARM_L2, 2) - pow(h, 2)) / (-2 * ARM_L2 * h));
+            t3a = acos((pow(h, 2) - pow(ARM_L2, 2) - pow(ARM_L3, 2)) / (-2 * ARM_L2 * ARM_L3));
+            
+            servos[1] = (PI / 2) - t2a - t2b;
+            servos[2] = PI - t3a;
+            servos[3] = PI - servos[1] - servos[2];
+        } else {
+            // height < ARM_L1 && r >= rCrit
+            double yDisp, h, t2a, t2b, t4a;
+
+            yDisp = ARM_L1 - height;
+            h = sqrt(pow(r, 2) + pow(yDisp, 2));
+            t2a = atan(r / yDisp);
+            t2b = acos((pow(ARM_L4, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(h, 2)) / (-2 * (ARM_L2 + ARM_L3) * h));
+            t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
+            
+            servos[1] = PI - t2a - t2b;
+            servos[2] = 0;
+            servos[3] = PI - t4a;
         }
     } else {
-        // r >= rCrit && height < ARM_L1
-		h = sqrt(pow(r, 2) + pow(yDisp, 2));
-		t2a = atan(yDisp / r);
-		t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ARM_L2 + ARM_L3, 2)) / (-2 * h * (ARM_L2 + ARM_L3)));
-		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
-		
-		servos[1] = (PI / 2) - t2a - t2b;
-		servos[2] = 0;
-		servos[3] = PI - t4a;
-    }
-	printf("%f, %f, %f\n", r, rCrit, rCritFar);
-	/*if ((r <= rCrit && (height < ARM_L1)) || height) {
-		double h, tc, ta, tb;
-		
-		tc = atan(yDisp/r);
-		ta = acos((pow(ARM_L3, 2) - pow(ARM_L2, 2) - pow(h, 2)) / (-2 * ARM_L2 * h));
-		tb = acos((pow(h, 2) - pow(ARM_L2, 2) - pow(ARM_L3, 2)) / (-2 * ARM_L2 * ARM_L3));
+        double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2));
 
-		servos[1] = PI/2 - tc - ta;
-		servos[2] = PI - tb;
-		servos[3] = PI - servos[1] - servos[2];
-	} else if (r > rCrit && r <= rCritFar) {
-		double h, t2a, t2b, t4a;
-		
-		if (height < ARM_L1) {
-		    yDisp = ARM_L1 - height;
-	    } else {
-	        yDisp = height - ARM_L1;
+        if (r < rCrit) {
+            // height >= ARM_L1 && r < rCrit
+            double yDisp, t2a, t2b, t2c, tha, h, ha, t3a;
+
+            yDisp = height - ARM_L1;
+            ha = sqrt(pow(r, 2) + pow(yDisp, 2));
+            t2a = atan(yDisp / r);
+            tha = (PI / 2) + t2a;
+            h = sqrt(pow(ha, 2) + pow(ARM_L4, 2) - (2 * ha * ARM_L4 * cos(tha)));
+            t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ha, 2)) / (-2 * h * ha));
+            t2c = acos((pow(ARM_L3, 2) - pow(ARM_L2, 2) - pow(ha, 2)) / (-2 * ARM_L2 * h));
+            t3a = asin((h * sin(t2c)) / ARM_L3);
+
+            servos[1] = (PI / 2) - t2a - t2b - t2c;
+            servos[2] = PI - t3a;
+            servos[3] = PI - servos[1] - servos[2];
+        } else {
+            // height >= ARM_L1 && r >= rCrit
+            double yDisp, h, t2a, t2b, t4a;
+
+            yDisp = height - ARM_L1;
+            h = sqrt(pow(r, 2) + pow(yDisp, 2));
+            t2a = atan(yDisp / r);
+            t2b = acos((pow(ARM_L4, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(h, 2)) / (-2 * (ARM_L2 + ARM_L3) * h));
+            t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
+            
+            servos[1] = (PI / 2) - t2a - t2b;
+            servos[2] = 0;
+            servos[3] = PI - t4a;
         }
-		printf("height: %f\n", height);
-		printf("h: %f\n", h);
-		t4a = acos((pow(h, 2) - pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2)) / (-2 * (ARM_L2 + ARM_L3) * ARM_L4));
-		printf("t4a: %f\n", t4a);
-		t2a = asin(r / h);
-		printf("t2a: %f\n", t2a);
-		t2b = acos((pow(ARM_L4, 2) - pow(h, 2) - pow(ARM_L2 + ARM_L3, 2)) / (-2 * h * (ARM_L2 + ARM_L3)));
-		printf("t2b: %f\n", t2b);
-
-		servos[1] = PI - t2a - t2b;
-		servos[2] = 0;
-		servos[3] = PI - t4a;
-	} else {
-	    printf("FAILING SERVO ANGLE COMP!!!!!!!!!!!!!\n");
-    }*/
+    }
 	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
 }
 

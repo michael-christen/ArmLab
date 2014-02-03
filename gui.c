@@ -2,6 +2,7 @@
 #include "gui.h"
 
 #define NUM_SERVOS 6
+#define MAX_RADIUS 34
 #define DISPLAY_H 800
 #define DISPLAY_W 1000
 // It's good form for every application to keep its gstate in a struct.
@@ -135,11 +136,18 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
 		calib_cam = ~calib_cam;
 	} else if (!strcmp("but2", name)){
 		arm_action_t arm_action;
-	    arm_action.getBalls = 1;	    
+	    arm_action.getBalls = 1;
+	    arm_action.goToHome = 0;	    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	} else if (!strcmp("but3", name)){
 		arm_action_t arm_action;
-	    arm_action.getBalls = 0;	    
+	    arm_action.getBalls = 0;
+	    arm_action.goToHome = 0;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	} else if (!strcmp("but4", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 0;
+	    arm_action.goToHome = 1;	    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	} else {
         printf("%s changed\n", name);
@@ -370,6 +378,7 @@ void* render_camera(void *data)
 		    }
 		    
 		    ball_list_t_publish(lcm, ball_channel, &ball_list);
+		    free(ball_list.balls);
 		}
 		
 
@@ -538,7 +547,7 @@ vx_object_t* renderClaw(int above, Arm_t* arm){
 	return claw;
 }
 
-void renderBalls(int above, vx_world_t* world) {
+void renderBalls(uint16_t above, vx_world_t* world) {
     //pthread_mutex_unlock(&ball_mutex);
     ball_t currentBall;
     vx_object_t *ball;
@@ -549,11 +558,10 @@ void renderBalls(int above, vx_world_t* world) {
 		currentBall.y = 5;
 		currentBall.num_px = 150;
 		balls[i] = currentBall; 
-		*/
+		*/    
 		ball = vxo_chain(
 			vxo_mat_rotate_x(above*M_PI/2.0),
-			vxo_mat_translate3(balls[i].x,15*~above +
-			    33*above,balls[i].y),
+			vxo_mat_translate3(balls[i].x,-15*!above+3*above,balls[i].y+25*!above),
 			vxo_mat_scale3(3,3,3),
 			vxo_sphere(vxo_mesh_style(vx_yellow))
 		);
@@ -795,11 +803,30 @@ void* render_status(void* data){
 		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, texta));
 		
+		int num_valid_balls = num_balls;
+		int balls_valid[num_balls];
+		
+		for(int i = 0; i < num_balls; i++){
+		      if(balls[i].y > -12 && balls[i].y < 12 && balls[i].x < 0){
+		            num_valid_balls--;
+		            balls_valid[i] = 0;
+		      }else{
+		             double r = sqrt(pow(balls[i].x, 2) + pow(balls[i].y, 2));
+		             if(r > MAX_RADIUS){
+		                num_valid_balls--;
+		                balls_valid[i] = 0;
+		             }else{
+		                balls_valid[i] = 1;
+		             }
+		      }
+		}
 		//pthread_mutex_lock(&ball_mutex);
-		sprintf(ballText, " %d Balls:\n", num_balls);
+		sprintf(ballText, " %d reachable balls:\n", num_valid_balls);
 		for(int i = 0; i < num_balls; ++i) {
-		    sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
-			    balls[i].x, balls[i].y);
+		    if(balls_valid[i]){
+		        sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
+			        balls[i].x, balls[i].y);
+			}
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
@@ -932,6 +959,10 @@ void* gui_create(int argc, char **argv){
                    
     pg_add_buttons(pg,
                    "but3", "Stop Getting Balls",
+                   NULL);
+                   
+   pg_add_buttons(pg,
+                   "but4", "Go to home",
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t));

@@ -16,6 +16,9 @@
 #include "lcmtypes/dynamixel_command_t.h"
 #include "lcmtypes/dynamixel_status_list_t.h"
 #include "lcmtypes/dynamixel_status_t.h"
+#include "lcmtypes/ball_info_t.h"
+#include "lcmtypes/ball_list_t.h"
+#include "lcmtypes/arm_action_t.h"
 
 #include "blob_detection.h"
 

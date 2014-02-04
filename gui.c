@@ -2,6 +2,7 @@
 #include "gui.h"
 
 #define NUM_SERVOS 6
+#define MAX_RADIUS 34
 #define DISPLAY_H 800
 #define DISPLAY_W 1000
 // It's good form for every application to keep its gstate in a struct.
@@ -32,14 +33,18 @@ double servo_positions[NUM_SERVOS];
 
 lcm_t *lcm;
 const char *gui_channel;
+const char *ball_channel;
+const char *action_channel;
 
 ball_t balls[MAX_NUM_BALLS];
 int num_balls;
 pthread_mutex_t ball_mutex;
 
+//These are variables for the equation
+// x = ax + by + c, y = dx + ey + f
 double scalingFactors[6] = {1,0,0,0,1,0};
-//px, py, 1, 0,   0, 0
-//0,  0 , 0, px, py, 1
+//Pixel samples
+//px, py, 1
 double samples[3*NUM_SAMPLES_FOR_ISCALING];
 int numSamples = 0;
 pthread_mutex_t scaling_mutex;
@@ -59,7 +64,7 @@ void* initScalingFactors(void *data) {
 	15.3,  15,
 	-0.1,  15.3,
 	-14.9, 15.3,
-	-15.0, -0.2
+	-15.0, -0.2 
     };
     pthread_mutex_lock(&scaling_mutex);
 
@@ -77,21 +82,7 @@ void* initScalingFactors(void *data) {
     //Positions
     matd_t *pos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, positions);
     //x = inv(trans(A)*A)*trans(A)*b
-    //x = 
-    //matd_t * sol_mat = matd_op("(A' * A)^-1 * A' * b", sample_mat, pos_mat);
-    matd_t *trans_mat = matd_transpose(sample_mat);
-    matd_t *temp_mat = matd_multiply(trans_mat, sample_mat);
-    matd_print(temp_mat," %lf ");
-    //???This is breaking
-    matd_t *temp2_mat = matd_inverse(temp_mat);
-    
-    matd_destroy(temp_mat);
-
-    temp_mat = matd_multiply(temp2_mat, trans_mat);
-
-    matd_destroy(temp2_mat);
-
-    temp2_mat = matd_multiply(temp_mat, pos_mat);
+    matd_t * sol_mat = matd_op("(M' * M)^-1 * M' * M", sample_mat,sample_mat,sample_mat, pos_mat);
     
     printf("Position matrix\n");
     matd_print(pos_mat, " %lf ");
@@ -100,16 +91,14 @@ void* initScalingFactors(void *data) {
     matd_print(sample_mat, " %lf ");
 
     for(i = 0; i < 6; ++i) {
-	scalingFactors[i] = matd_get(temp2_mat,i%3,i/3);
+	scalingFactors[i] = matd_get(sol_mat,i%3,i/3);
 	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
     }
 
     //Clean up
     matd_destroy(sample_mat);
     matd_destroy(pos_mat);
-    matd_destroy(temp2_mat);
-    matd_destroy(temp_mat);
-    matd_destroy(trans_mat);
+    matd_destroy(sol_mat);
     printf("Scaling Factors initialized\n");
     return NULL;
 }
@@ -147,6 +136,21 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
     } else if (!strcmp("but1", name)){
 		//camera_show = pg_gb(pg, name);
 		calib_cam = ~calib_cam;
+	} else if (!strcmp("but2", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 1;
+	    arm_action.goToHome = 0;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	} else if (!strcmp("but3", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 0;
+	    arm_action.goToHome = 0;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	} else if (!strcmp("but4", name)){
+		arm_action_t arm_action;
+	    arm_action.getBalls = 0;
+	    arm_action.goToHome = 1;	    
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	} else {
         printf("%s changed\n", name);
     }
@@ -363,15 +367,21 @@ void* render_camera(void *data)
 		transform_balls();
 		//pthread_mutex_unlock(&ball_mutex);
 		
-		/*if(num_balls) {
-		    printf("%d Balls\n", num_balls);
+		if(num_balls) {
+		    ball_list_t ball_list;
+		    ball_list.len = num_balls;
+		    ball_list.balls = malloc(sizeof(ball_info_t) * num_balls);
+
 		    for(int i = 0; i < num_balls; ++i) {
-			printf("X: %f, Y: %f, pxs: %d\n",
-				balls[i].x, 
-				balls[i].y, 
-				balls[i].num_px);
+				ball_list.balls[i].utime = utime_now();		    
+				ball_list.balls[i].x = balls[i].x;
+				ball_list.balls[i].y = balls[i].y; 
+				ball_list.balls[i].num_pxs = balls[i].num_px;
 		    }
-		}*/
+		    
+		    ball_list_t_publish(lcm, ball_channel, &ball_list);
+		    free(ball_list.balls);
+		}
 		
 
                 if (im != NULL) {
@@ -539,7 +549,7 @@ vx_object_t* renderClaw(int above, Arm_t* arm){
 	return claw;
 }
 
-void renderBalls(int above, vx_world_t* world) {
+void renderBalls(uint16_t above, vx_world_t* world) {
     //pthread_mutex_unlock(&ball_mutex);
     ball_t currentBall;
     vx_object_t *ball;
@@ -550,10 +560,10 @@ void renderBalls(int above, vx_world_t* world) {
 		currentBall.y = 5;
 		currentBall.num_px = 150;
 		balls[i] = currentBall; 
-		*/
+		*/    
 		ball = vxo_chain(
 			vxo_mat_rotate_x(above*M_PI/2.0),
-			vxo_mat_translate3(balls[i].x,15*~above + 33*above,balls[i].y),
+			vxo_mat_translate3(balls[i].x,-15*!above+3*above,balls[i].y+25*!above),
 			vxo_mat_scale3(3,3,3),
 			vxo_sphere(vxo_mesh_style(vx_yellow))
 		);
@@ -823,11 +833,30 @@ void* render_status(void* data){
 		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, texta));
 		
+		int num_valid_balls = num_balls;
+		int balls_valid[num_balls];
+		
+		for(int i = 0; i < num_balls; i++){
+		      if(balls[i].y > -12 && balls[i].y < 12 && balls[i].x < 0){
+		            num_valid_balls--;
+		            balls_valid[i] = 0;
+		      }else{
+		             double r = sqrt(pow(balls[i].x, 2) + pow(balls[i].y, 2));
+		             if(r > MAX_RADIUS){
+		                num_valid_balls--;
+		                balls_valid[i] = 0;
+		             }else{
+		                balls_valid[i] = 1;
+		             }
+		      }
+		}
 		//pthread_mutex_lock(&ball_mutex);
-		sprintf(ballText, " %d Balls:\n", num_balls);
+		sprintf(ballText, " %d reachable balls:\n", num_valid_balls);
 		for(int i = 0; i < num_balls; ++i) {
-		    sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
-			    balls[i].x, balls[i].y);
+		    if(balls_valid[i]){
+		        sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
+			        balls[i].x, balls[i].y);
+			}
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
@@ -863,6 +892,8 @@ void* gui_create(int argc, char **argv){
     getopt_add_bool(gstate->gopt, 'h', "help", 0, "Show help");
     getopt_add_string(gstate->gopt, '\0', "url", "", "Camera URL");
 	getopt_add_string(gstate->gopt, '\0', "gui-channel", "ARM_GUI", "GUI channel");
+	getopt_add_string(gstate->gopt, '\0', "ball-channel", "ARM_BALLS", "Ball positions channel");
+	getopt_add_string(gstate->gopt, '\0', "action-channel", "ARM_ACTION", "Arm action channel");
 	getopt_add_bool(gstate->gopt, 'c', "camera", 0, "laptop");
 
 
@@ -886,6 +917,8 @@ void* gui_create(int argc, char **argv){
 
 	lcm = lcm_create(NULL);
 	gui_channel = getopt_get_string(gstate->gopt, "gui-channel");
+	ball_channel = getopt_get_string(gstate->gopt, "ball-channel");
+	action_channel = getopt_get_string(gstate->gopt, "action-channel");
 
     // Set up the imagesource. This looks for a camera url specified on
     // the command line and, if none is found, enumerates a list of all
@@ -948,6 +981,18 @@ void* gui_create(int argc, char **argv){
                        NULL);*/
     pg_add_buttons(pg,
                    "but1", "Calibrate Camera",
+                   NULL);
+                   
+    pg_add_buttons(pg,
+                   "but2", "Get Balls",
+                   NULL);
+                   
+    pg_add_buttons(pg,
+                   "but3", "Stop Getting Balls",
+                   NULL);
+                   
+   pg_add_buttons(pg,
+                   "but4", "Go to home",
                    NULL);
 
     parameter_listener_t *my_listener = calloc(1,sizeof(parameter_listener_t));

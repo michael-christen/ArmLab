@@ -31,8 +31,9 @@
 #define ARM_L3 10
 #define ARM_L4 18
 #define ARM_CLAW_WIDTH 5
-#define RADIAN_ERROR 0.05
 #define MAX_RADIUS 34
+#define MAX_CMD_DUR 3.0
+#define UPDATE_INTERVAL 0.5
 
 typedef struct state state_t;
 struct state
@@ -61,9 +62,12 @@ struct state
 double cur_speeds[NUM_SERVOS];
 double cur_positions[NUM_SERVOS];
 
+double RADIAN_ERROR = 0.05;
+
 pthread_mutex_t cmd_mutex;
 pthread_cond_t cmd_cv;
-int new_cmd;
+int start_cmd, end_cmd;
+clock_t cmd_begin, cmd_check, cmd_last_update;
 
 pthread_mutex_t command_mutex;
 pthread_cond_t command_cv, command_exit_cv;
@@ -197,9 +201,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 {
     pthread_mutex_lock(&cmd_mutex);
 
-    while(!new_cmd) { 
-	pthread_cond_wait(&cmd_cv, &cmd_mutex);
-    }
+
     state->cur_x = cos(theta) * r;
     state->cur_y = sin(theta) * r;
 
@@ -232,7 +234,33 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     }
     //Send it after get signal from status
     dynamixel_command_list_t_publish(state->lcm, state->command_channel, &cmds);
-    new_cmd = 0;
+
+    //Wait for other to finish
+    cmd_begin = clock();
+    cmd_last_update = cmd_begin;
+    //Show that you want to be signalled
+    end_cmd = 1;
+    int firstTimeThrough = 1;
+    while(!start_cmd) { 
+	if(!firstTimeThrough) {
+	    if(cmds.commands[0].max_torque < 1){
+		printf("going to increase torque\n");
+		for(int i = 0; i < NUM_SERVOS; ++i) {
+		    cmds.commands[i].max_torque += 0.1;
+		}
+		printf("torque: %f\n",cmds.commands[0].max_torque);
+		dynamixel_command_list_t_publish(state->lcm,
+			state->command_channel, &cmds);
+	    }
+	    RADIAN_ERROR += 0.01;
+	}
+	firstTimeThrough = 0;
+	pthread_cond_wait(&cmd_cv, &cmd_mutex);
+    }
+    RADIAN_ERROR = 0.05;
+
+    start_cmd = 0;
+    end_cmd = 0;
 
     pthread_mutex_unlock(&cmd_mutex);
 
@@ -547,6 +575,15 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	//printf("[id %02d]=%3.3f ",id, stat.speed);
     }
     int satisfied = 1;
+    double dur_cmd;
+
+    pthread_mutex_lock(&cmd_mutex);
+
+    cmd_check = clock();
+    dur_cmd = ((double)cmd_check - (double)cmd_begin)
+	/CLOCKS_PER_SEC;
+    double diff_update = ((double)cmd_check -
+	    (double)cmd_last_update)/CLOCKS_PER_SEC;
     for (id = 0; id < NUM_SERVOS; id++) {
 	//If all servos aren't in position
 	double error = getError(
@@ -563,24 +600,22 @@ void status_handler(const lcm_recv_buf_t *rbuf,
 	}
     }
 
-    pthread_mutex_lock(&cmd_mutex);
-
-    if(satisfied && !new_cmd){
-	printf("signaling\n");
-	new_cmd = 1;
+    //If there or stuck (exceeding time)
+    //if((satisfied) && !start_cmd && end_cmd){
+    if((satisfied || dur_cmd > MAX_CMD_DUR) && !start_cmd && end_cmd){
+	printf("signaling after %f secs\n", dur_cmd);
+	start_cmd = 1;
+	pthread_cond_broadcast(&cmd_cv);
+    } else if(!start_cmd && end_cmd && diff_update > UPDATE_INTERVAL) {
+	cmd_last_update = clock();
+	//Alerts to increase torque
 	pthread_cond_broadcast(&cmd_cv);
     }
-    /*
-    if(satisfied){
-	//printf("signaling\n");
-	new_cmd = 1;
-	pthread_cond_broadcast(&cmd_cv);
-    }
-    */
 
     //Set false after first time
     if(neverMoved) {
-	new_cmd = 1;
+	start_cmd = 1;
+	end_cmd = 0;
 	neverMoved = 0;
     }
     pthread_mutex_unlock(&cmd_mutex);
@@ -624,7 +659,8 @@ int main(int argc, char **argv)
         exit(-1);
     }
     
-    new_cmd = 0;
+    start_cmd = 0;
+    end_cmd = 0;
     state_t *state = malloc(sizeof(state_t));
     state->gettingBalls = 0;
     state->lcm = lcm_create(NULL);

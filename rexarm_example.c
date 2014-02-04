@@ -182,6 +182,14 @@ void getServoAngles(double *servos, double theta, double r, double height) {
             servos[3] = PI - t4a;
         }
     }
+	
+	if(servos[0] < 0){
+		servos[0] += M_PI;
+		for(int i = 1; i < 4; i++){
+			servos[i] = -servos[i];
+		}
+	}
+
 	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
 }
 

@@ -184,7 +184,7 @@ void getServoAngles(double *servos, double theta, double r, double height) {
         }
     }
 	
-	if(servos[0] < 0 && servos[0] > -3.1){
+	if(servos[0] < 0){
 		servos[0] += M_PI-.1;
 		for(int i = 1; i < 4; i++){
 			servos[i] = -servos[i];
@@ -313,7 +313,7 @@ void dropBall(state_t* state){
     double torque = 0.7;
     
     printf("cur theta: %f\n", cur_positions[0]);
-    if (cur_positions[0] > 0) {
+    if (cur_positions[0] > 0 && cur_positions[3] > 0) {
         theta = 3.1;
     } else {
         theta = -3.1;

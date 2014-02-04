@@ -96,6 +96,7 @@ static int64_t utime_now()
 void getServoAngles(double *servos, double theta, double r, double height) {
     if (r == 0) {
         int i;
+        servos[0] = cur_positions[0];
         for (i = 1; i < NUM_SERVOS; i++) {
             servos[i] = 0;
         }
@@ -183,8 +184,8 @@ void getServoAngles(double *servos, double theta, double r, double height) {
         }
     }
 	
-	if(servos[0] < 0){
-		servos[0] += M_PI;
+	if(servos[0] < 0 && servos[0] > -3.1){
+		servos[0] += M_PI-.1;
 		for(int i = 1; i < 4; i++){
 			servos[i] = -servos[i];
 		}
@@ -221,6 +222,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     double positions[NUM_SERVOS];
     for(int i = 0; i < NUM_SERVOS; i++){
 	positions[i] = cur_positions[i];
+	    RADIAN_ERROR += 0.01;
     }
     positions[4] = 0;
     //Inits positions to desired theta, r, height
@@ -233,6 +235,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     }	//Don't change claw if other value
 
     // Send LCM commands to arm.
+    printf("Servo 0: %f\n", positions[0]);
     for (int id = 0; id < NUM_SERVOS; id++) {
 	cmds.commands[id].utime = utime_now();
 	cmds.commands[id].position_radians = positions[id];

@@ -2,8 +2,8 @@
 #include "gui.h"
 
 #define NUM_SERVOS 6
-#define DISPLAY_H 800
-#define DISPLAY_W 1000
+#define DISPLAY_H 600//800
+#define DISPLAY_W 800//1000
 // It's good form for every application to keep its gstate in a struct.
 
 struct gstate
@@ -114,17 +114,19 @@ void gui_update_servo_pos(double servo_pos[]){
 // gstate, etc if need be.
 void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name)
 {
-   /* if (!strcmp("s1", name)) {
+    if (!strcmp("s0", name)) {
        servo_positions[0] = pg_gi(pg, name);//camera_zoom = pg_gi(pg, name);
-    } else if (!strcmp("s2", name)) {
+    } else if (!strcmp("s1", name)) {
         servo_positions[1] = pg_gi(pg, name);//arm_zoom = pg_gi(pg, name);
-	} if (!strcmp("s3", name)) {
+	} else if (!strcmp("s2", name)) {
        servo_positions[2] = pg_gi(pg, name);
-    } if (!strcmp("s4", name)) {
+    } else if (!strcmp("s3", name)) {
        servo_positions[3] = pg_gi(pg, name);
-    } if (!strcmp("s5", name)) {
-       servo_positions[5] = pg_gi(pg, name);*/
-	if (!strcmp("sl1", name)) {
+    } else if (!strcmp("s4", name)) {
+       servo_positions[4] = pg_gi(pg, name);
+    } else if (!strcmp("s5", name)) {
+       servo_positions[5] = pg_gi(pg, name);
+	} if (!strcmp("sl1", name)) {
        camera_zoom = pg_gi(pg, name);
     } else if (!strcmp("sl2", name)) {
        arm_zoom = pg_gi(pg, name);
@@ -430,7 +432,9 @@ struct ArmState{
 
 vx_object_t* render1(int above, Arm_t* arm){
 	vx_object_t *block1 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
-					vxo_mat_translate3(arm->totalxshift, arm->block1size/2.0 + arm->totalyshift, arm->totalzshift),
+					vxo_mat_translate3(arm->totalxshift,
+					arm->block1size/2.0 + arm->totalyshift,
+					arm->totalzshift),
 					vxo_mat_rotate_y(M_PI/2.0),
 					vxo_mat_scale3(3, arm->block1size, 5),
 					vxo_box(vxo_mesh_style(arm->color),
@@ -441,7 +445,9 @@ vx_object_t* render1(int above, Arm_t* arm){
 
 vx_object_t* render2(int above, Arm_t* arm){
 	vx_object_t *block2 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
-				vxo_mat_translate3(arm->totalxshift, arm->totalsize + arm->block2size/2.0 + arm->totalyshift, arm->totalzshift),
+				vxo_mat_translate3(arm->totalxshift, 
+				arm->totalsize + arm->block2size/2.0 + arm->totalyshift,
+				arm->totalzshift),
 				vxo_mat_rotate_y(servo_positions[0]),
 				vxo_mat_scale3(3, arm->block2size, 5),
 				vxo_box(vxo_mesh_style(arm->color),
@@ -453,7 +459,9 @@ vx_object_t* render2(int above, Arm_t* arm){
 
 vx_object_t* render3(int above, Arm_t* arm){
 	vx_object_t *block3 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
-				vxo_mat_translate3(arm->totalxshift-sin(servo_positions[1])*arm->block3size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block3size/2.0*cos(servo_positions[1]) + arm->totalyshift, arm->totalzshift + arm->block3size/2.0*sin(servo_positions[0])*sin(servo_positions[1])),
+				vxo_mat_translate3(arm->totalxshift-sin(servo_positions[1])*arm->block3size/2.0*cos(servo_positions[0]),
+				arm->totalsize + arm->block3size/2.0*cos(servo_positions[1]) + arm->totalyshift,
+				arm->totalzshift + arm->block3size/2.0*sin(servo_positions[0])*sin(servo_positions[1])),
 				vxo_mat_rotate_y(servo_positions[0]),
 				vxo_mat_rotate_z(servo_positions[1]),
 				vxo_mat_scale3(3, arm->block3size, 5),
@@ -469,7 +477,10 @@ vx_object_t* render3(int above, Arm_t* arm){
 
 vx_object_t* render4(int above, Arm_t* arm){
 	vx_object_t *block4 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
-				vxo_mat_translate3(arm->totalxshift -sin(arm->totalangle + servo_positions[2])*arm->block4size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block4size/2.0*cos(arm->totalangle + servo_positions[2]) + arm->totalyshift, arm->totalzshift + arm->block4size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[2])),
+				vxo_mat_translate3(arm->totalxshift -
+				sin(arm->totalangle + servo_positions[2])*arm->block4size/2.0*cos(servo_positions[0]),
+				arm->totalsize + arm->block4size/2.0*cos(arm->totalangle + servo_positions[2]) + arm->totalyshift,
+				arm->totalzshift + arm->block4size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[2])),
 				vxo_mat_rotate_y(servo_positions[0]),
 				vxo_mat_rotate_z(arm->totalangle + servo_positions[2]),
 				vxo_mat_scale3(3, arm->block4size, 5),
@@ -485,7 +496,10 @@ vx_object_t* render4(int above, Arm_t* arm){
 
 vx_object_t* render5(int above, Arm_t* arm){
 	vx_object_t *block5 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2),
-				vxo_mat_translate3(arm->totalxshift -sin(arm->totalangle + servo_positions[3])*arm->block5size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block5size/2.0*cos(arm->totalangle + servo_positions[3]) + arm->totalyshift, arm->totalzshift + arm->block5size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[3])),
+				vxo_mat_translate3(arm->totalxshift -
+				sin(arm->totalangle + servo_positions[3])*arm->block5size/2.0*cos(servo_positions[0]),
+				arm->totalsize + arm->block5size/2.0*cos(arm->totalangle + servo_positions[3]) + arm->totalyshift,
+				arm->totalzshift + arm->block5size/2.0*sin(servo_positions[0])*sin(arm->totalangle + servo_positions[3])),
 				vxo_mat_rotate_y(servo_positions[0]),
 				vxo_mat_rotate_z(arm->totalangle + servo_positions[3]),
 				vxo_mat_scale3(3, arm->block5size, 5),
@@ -501,8 +515,18 @@ vx_object_t* render5(int above, Arm_t* arm){
 
 vx_object_t* render6(int above, Arm_t* arm){
 	vx_object_t *block6 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2.0),
-				vxo_mat_translate3(cos(servo_positions[0])*cos(arm->totalangle) + arm->totalxshift -sin(arm->totalangle)*arm->block6size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block6size/2.0*cos(arm->totalangle) + sin(arm->totalangle) + arm->totalyshift, arm->totalzshift - sin(servo_positions[0])*cos(arm->totalangle) + arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle)),
-				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(arm->totalangle)),
+				vxo_mat_translate3(
+				//X
+				cos(servo_positions[0])*cos(arm->totalangle) + 
+				arm->totalxshift - sin(arm->totalangle)*arm->block6size/2.0*cos(servo_positions[0]),
+				//Y
+				arm->totalsize + arm->block6size/2.0*cos(arm->totalangle) + 
+				sin(arm->totalangle) + arm->totalyshift,
+				//Z
+				arm->totalzshift - sin(servo_positions[0])*cos(arm->totalangle) + 
+				arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle)),
+				//ROTATE
+				vxo_mat_rotate_y(servo_positions[0]),// - servo_positions[4]*cos(arm->totalangle)),
 				//vxo_mat_rotate_x(servo_positions[4]*sin(arm->totalangle)),
 				vxo_mat_rotate_z(arm->totalangle),
 				vxo_mat_scale3(1, arm->block6size, 5),
@@ -511,9 +535,44 @@ vx_object_t* render6(int above, Arm_t* arm){
 	return block6;
 }
 
+vx_object_t* rendertest(int above, Arm_t* arm){
+	vx_object_t *block6 = vxo_chain(vxo_mat_rotate_x(above*M_PI/2.0),
+				vxo_mat_rotate_y(servo_positions[4]),
+				vxo_mat_translate3(
+				//X
+				cos(servo_positions[0])*cos(arm->totalangle) + 
+				arm->totalxshift - sin(arm->totalangle)*arm->block6size/2.0*cos(servo_positions[0]),
+				//Y
+				arm->totalsize + arm->block6size/2.0*cos(arm->totalangle) + 
+				sin(arm->totalangle) + arm->totalyshift,
+				//Z
+				arm->totalzshift - sin(servo_positions[0])*cos(arm->totalangle) + 
+				arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle)),
+				//ROTATE
+				vxo_mat_rotate_y(servo_positions[0]),
+				vxo_mat_rotate_z(arm->totalangle),
+				//vxo_mat_rotate_y(servo_positions[0]),// - servo_positions[4]*cos(arm->totalangle)),
+				//vxo_mat_rotate_x(servo_positions[4]*sin(arm->totalangle)),
+				vxo_mat_scale3(1, arm->block6size, 5),
+				vxo_box(vxo_mesh_style(arm->color),
+				vxo_lines_style(vx_yellow, 2.0f)));
+	return block6;
+}
+
+
 vx_object_t* renderClaw(int above, Arm_t* arm){
 	vx_object_t *claw = vxo_chain(vxo_mat_rotate_x(above*M_PI/2.0),
-				vxo_mat_translate3(-cos(servo_positions[0])*cos(arm->totalangle) + arm->totalxshift - cos(arm->totalangle-servo_positions[5])*arm->block6size/2.0*cos(servo_positions[0]), arm->totalsize + arm->block6size/2.0*cos(arm->totalangle - servo_positions[5] + M_PI/2.0) - sin(arm->totalangle) + arm->totalyshift, arm->totalzshift + sin(servo_positions[0])*cos(arm->totalangle) + arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle - servo_positions[5] + M_PI/2.0)),
+				vxo_mat_translate3(
+				//X
+				-cos(servo_positions[0])*cos(arm->totalangle) + 
+				arm->totalxshift - cos(arm->totalangle-servo_positions[5])*arm->block6size/2.0*cos(servo_positions[0]),
+				//Y
+				arm->totalsize + arm->block6size/2.0*cos(arm->totalangle - servo_positions[5] + M_PI/2.0) - 
+				sin(arm->totalangle) + arm->totalyshift,
+				//Z
+				arm->totalzshift + sin(servo_positions[0])*cos(arm->totalangle) + 
+				arm->block6size/2.0*sin(servo_positions[0])*sin(arm->totalangle - servo_positions[5] + M_PI/2.0)),
+				//ROTATE
 				vxo_mat_rotate_y(servo_positions[0]),//+servo_positions[4]*cos(arm->totalangle)),
 				//vxo_mat_rotate_x(servo_positions[4]*sin(arm->totalangle)),
 				vxo_mat_rotate_z(arm->totalangle - servo_positions[5]),
@@ -579,8 +638,8 @@ void render_elements(int above, vx_world_t* world){
 	vx_buffer_add_back(vx_world_get_buffer(world, "block3"), render3(above, arm));
 	vx_buffer_add_back(vx_world_get_buffer(world, "block4"), render4(above, arm));
 	vx_buffer_add_back(vx_world_get_buffer(world, "block5"), render5(above, arm));
-	vx_buffer_add_back(vx_world_get_buffer(world, "block6"), render6(above, arm));
-	vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
+	vx_buffer_add_back(vx_world_get_buffer(world, "block6"), rendertest(above, arm));
+	//vx_buffer_add_back(vx_world_get_buffer(world, "claw"), renderClaw(above, arm));	
 
 	vx_buffer_swap(vx_world_get_buffer(world, "block1"));
 	vx_buffer_swap(vx_world_get_buffer(world, "block2"));
@@ -588,7 +647,7 @@ void render_elements(int above, vx_world_t* world){
 	vx_buffer_swap(vx_world_get_buffer(world, "block4"));
 	vx_buffer_swap(vx_world_get_buffer(world, "block5"));
 	vx_buffer_swap(vx_world_get_buffer(world, "block6"));
-	vx_buffer_swap(vx_world_get_buffer(world, "claw"));
+	//vx_buffer_swap(vx_world_get_buffer(world, "claw"));
 	renderBalls(above, world);
 }
 
@@ -883,7 +942,7 @@ void* gui_create(int argc, char **argv){
 	
 	parameter_gui_t *pg = pg_create();
 
-	pg_add_double_slider(pg, "sl1", "Zoom Camera", 0, 800, camera_zoom);
+	//pg_add_double_slider(pg, "sl1", "Zoom Camera", 0, 800, camera_zoom);
 	pthread_create(&gstate->animate_thread, NULL, render_camera, gstate);
 	pthread_create(&gstate->animate_thread, NULL, render_view, gstate);
 	pthread_create(&gstate->animate_thread, NULL, render_above, gstate);
@@ -895,11 +954,12 @@ void* gui_create(int argc, char **argv){
     // Initialize a parameter gui
    
     //pg_add_double_slider(pg, "sl2", "Zoom Arm", 0, 20, 5);
-	/*pg_add_double_slider(pg, "s1", "Rotation", -M_PI, M_PI, 0);
-	pg_add_double_slider(pg, "s2", "Servo 1", -M_PI, M_PI, 0);
-	pg_add_double_slider(pg, "s3", "Servo 2", -M_PI, M_PI, 0);
-	pg_add_double_slider(pg, "s4", "Servo 3", -M_PI, M_PI, 0);
-	pg_add_double_slider(pg, "s5", "Hand", 0, M_PI, M_PI);*/
+	pg_add_double_slider(pg, "s0", "Rotation", -M_PI, M_PI, 0);
+	pg_add_double_slider(pg, "s1", "Servo 1", -M_PI, M_PI, 0);
+	pg_add_double_slider(pg, "s2", "Servo 2", -M_PI, M_PI, 0);
+	pg_add_double_slider(pg, "s3", "Servo 3", -M_PI, M_PI, 0);
+	pg_add_double_slider(pg, "s4", "Servo 4", -M_PI, M_PI, 0);
+	pg_add_double_slider(pg, "s5", "Hand", 0, M_PI, 0);
    /* pg_add_check_boxes(pg,
                        "cb1", "Camera", 1,
                        NULL);*/

@@ -55,7 +55,7 @@ struct state
     
     ball_info_t balls[MAX_NUM_BALLS];
 
-    volatile int gettingBalls, num_balls, balls_left, goToHome;
+    volatile int gettingBalls, num_balls, goToHome;
     double cur_x, cur_y;
 };
 
@@ -80,9 +80,10 @@ pthread_cond_t status_cv, status_exit_cv;
 
 dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
+int hasMoved;
 
 double dropHeight = 12;
-double pickupHeight = 10;
+double pickupHeight = 6;
 
 double UL_scaling_factor = 4.594595;
 
@@ -294,16 +295,29 @@ void pickUpBall(state_t* state, double theta, double r){
     double speedSlow = 0.3;
     double speedSlowest = 0.05;
     double torque = 0.7;
+    double interumTheta = 2.8;
+
+    if (hasMoved == 1) {
+        // This is an interum step after the arm has dropped off a ball at the basket
+        // This moves the arm just clear of the bucket, and lowers the height of the
+        // arm to prevent the arm colliding with itself
+        printf("0\n");
+        sendCommand(state, interumTheta, r, dropHeight, 1, speed, torque);
+    } else {
+        hasMoved = 1;
+    }
+    
     printf("1\n");
     sendCommand(state, theta, r, pickupHeight, 1, speed, torque);
     printf("2\n");
     sendCommand(state, theta, r, 7, 1, speed, torque);
     printf("3\n");
     sendCommand(state, theta, r, 4, 1, speedSlow, torque);
-    sendCommand(state, theta, r, 1, 1, speedSlowest, torque);
     printf("4\n");
-    sendCommand(state, theta, r, 1, 0, speedSlow * 2, torque);
+    sendCommand(state, theta, r, 1, 1, speedSlowest, torque);
     printf("5\n");
+    sendCommand(state, theta, r, 1, 0, speedSlow * 2, torque);
+    printf("6\n");
     sendCommand(state, theta, r, pickupHeight, 0, speed, torque);	
     printf("Finish\n");
 }
@@ -382,9 +396,8 @@ static void arm_action_handler( const lcm_recv_buf_t *rbuf,
     state_t* state = user;
     if (msg->getBalls == 1) {
         printf("Received message to get teh ballzz %d %d\n", state->gettingBalls, msg->getBalls);
-        state->balls_left = state->num_balls;
         state->gettingBalls = 1;
-        
+        hasMoved = 0;        
     } else {
         printf("K, stop getting teh ballz\n");
         state->gettingBalls = 0;
@@ -531,13 +544,7 @@ void* commandListener(void *data){
 	state_t* state = data;
 	while(1) {
 	    //printf("%d\n", state->gettingBalls);
-	    if (state->gettingBalls == 1 && state->balls_left > 0) {
-		printf("Balls left: %d\n", state->balls_left);
-		state->balls_left--;
-		if (state->balls_left <= 0) {
-		    state->gettingBalls = 0;
-		    stop_getting_balls();
-		}
+	    if (state->gettingBalls == 1) {
 		pthread_mutex_lock(&command_mutex);
 
 		double x, y;

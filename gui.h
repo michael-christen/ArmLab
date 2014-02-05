@@ -10,6 +10,7 @@
 
 #include "../common/matd.h"
 #include "common/math_util.h"
+#include "time.h"
 
 #include <lcm/lcm.h>
 #include "lcmtypes/dynamixel_command_list_t.h"
@@ -34,6 +35,7 @@ struct event_state {
 	int init_last;
 };
 
+void stop_getting_balls();
 void gui_update_servo_pos(double servo_pos[]);
 void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char *name);
 void* render_loop(void *data);

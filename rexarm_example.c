@@ -81,7 +81,7 @@ pthread_cond_t status_cv, status_exit_cv;
 dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
 
-double dropHeight = 15;
+double dropHeight = 12;
 double pickupHeight = 10;
 
 double UL_scaling_factor = 4.594595;
@@ -96,7 +96,7 @@ static int64_t utime_now()
 void getServoAngles(double *servos, double theta, double r, double height) {
     if (r == 0) {
         int i;
-        servos[0] = cur_positions[0];
+	servos[0] = theta;
         for (i = 1; i < NUM_SERVOS; i++) {
             servos[i] = 0;
         }
@@ -237,7 +237,6 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     }	//Don't change claw if other value
 
     // Send LCM commands to arm.
-    printf("Servo 0: %f\n", positions[0]);
     for (int id = 0; id < NUM_SERVOS; id++) {
 	cmds.commands[id].utime = utime_now();
 	cmds.commands[id].position_radians = positions[id];
@@ -291,15 +290,17 @@ void closeClaw(state_t* state, double theta, double r, double height){
 
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
-    double speed = 0.2;
-    double speedSlow = 0.04;
+    double speed = 1.0;
+    double speedSlow = 0.3;
+    double speedSlowest = 0.05;
     double torque = 0.7;
     printf("1\n");
     sendCommand(state, theta, r, pickupHeight, 1, speed, torque);
     printf("2\n");
-    sendCommand(state, theta, r, 5, 1, speed, torque);
+    sendCommand(state, theta, r, 7, 1, speed, torque);
     printf("3\n");
-    sendCommand(state, theta, r, 1, 1, speedSlow, torque);
+    sendCommand(state, theta, r, 4, 1, speedSlow, torque);
+    sendCommand(state, theta, r, 1, 1, speedSlowest, torque);
     printf("4\n");
     sendCommand(state, theta, r, 1, 0, speedSlow * 2, torque);
     printf("5\n");
@@ -311,7 +312,7 @@ void dropBall(state_t* state){
     //printf("pickupBall\n");
     double theta;
     double r = 25;
-    double speed = 0.2;
+    double speed = 1.0;
     double torque = 0.7;
     
     printf("cur theta: %f\n", cur_positions[0]);
@@ -387,6 +388,7 @@ static void arm_action_handler( const lcm_recv_buf_t *rbuf,
     } else {
         printf("K, stop getting teh ballz\n");
         state->gettingBalls = 0;
+        stop_getting_balls();
     }
     
     if (msg->goToHome == 1) {
@@ -534,6 +536,7 @@ void* commandListener(void *data){
 		state->balls_left--;
 		if (state->balls_left <= 0) {
 		    state->gettingBalls = 0;
+		    stop_getting_balls();
 		}
 		pthread_mutex_lock(&command_mutex);
 
@@ -550,6 +553,7 @@ void* commandListener(void *data){
 		    // No valid balls left
 		    printf("No more valid balls\n");
 		    state->gettingBalls = 0;
+		    stop_getting_balls();
 		}
 		else {
 		    if(x < 0 && y > 0){
@@ -568,7 +572,7 @@ void* commandListener(void *data){
 	    if (state->goToHome == 1) {
 		pthread_mutex_lock(&command_mutex);
 
-		sendCommand(state, 0, 0, 0, 0, 0.3, 0.7);
+		sendCommand(state, 3.1, 0, 0, 0, 0.3, 0.7);
 
 		pthread_mutex_unlock(&command_mutex);
 		state->goToHome = 0;   

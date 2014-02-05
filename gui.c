@@ -53,6 +53,9 @@ pthread_cond_t scaling_cv;
 int calib_cam = 0;	//Calibrating upper left quadrant
 double calib_positions[NUM_SERVOS] = {0, M_PI/2.0, 0, 0, 0, M_PI/2.0};
 
+volatile int getting_balls;
+clock_t ball_clock;
+
 void* initScalingFactors(void *data) {
     int i;
     //X, Y positions for calibration
@@ -103,6 +106,10 @@ void* initScalingFactors(void *data) {
     return NULL;
 }
 
+void stop_getting_balls(){
+    getting_balls = 0;
+}
+
 void gui_update_servo_pos(double servo_pos[]){
 	int i;
 	for(i = 0; i < NUM_SERVOS ;i++){
@@ -143,11 +150,14 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
 	    arm_action.getBalls = 1;
 	    arm_action.goToHome = 0;	    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	    getting_balls = 1;
+	    ball_clock = clock();
 	} else if (!strcmp("but3", name)){
 		arm_action_t arm_action;
 	    arm_action.getBalls = 0;
 	    arm_action.goToHome = 0;	    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
+	    getting_balls = 0;
 	} else if (!strcmp("but4", name)){
 		arm_action_t arm_action;
 	    arm_action.getBalls = 0;
@@ -859,9 +869,14 @@ void* render_status(void* data){
 
 	vx_layer_set_viewport_rel(layer, position);
 
+	int last_getting_balls = getting_balls;
+	int started = 0;
+
 	while(gstate->running){		
 		char angleText[128] = "";
 		char ballText[128] = "";
+		char statusText[64] = "";
+		char timeText[64] = "";
 		
 		sprintf(angleText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
 		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
@@ -897,7 +912,40 @@ void* render_status(void* data){
 		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, ballText);
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, textb));
 
-		//vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
+		vx_object_t* status;
+		vx_object_t* time;
+		double time_elapsed;
+
+		if(getting_balls){
+			clock_t cur_time = clock();
+			time_elapsed = (double)(cur_time - ball_clock)/CLOCKS_PER_SEC;
+		}
+		sprintf(timeText, "\n%s%gs\n", "<<#000000,right>>", time_elapsed);
+		
+		if(getting_balls){
+			sprintf(statusText, "%s\n%s", "<<#00ff00>>Retrieving balls...", timeText);
+			status = vxo_text_create(VXO_TEXT_ANCHOR_TOP_RIGHT, statusText);
+			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_RIGHT, status));
+		}
+		
+		if(!last_getting_balls && getting_balls){
+			started = 1;
+		}
+
+		if(started && !getting_balls){
+			sprintf(statusText, "%s\n%s", "<<#ff0000>>DONE!   ", timeText);
+			status = vxo_text_create(VXO_TEXT_ANCHOR_TOP_RIGHT, statusText);
+			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_RIGHT, status));
+		}
+
+		/*if(started){
+			
+			time = vxo_text_create(VXO_TEXT_ANCHOR_TOP_RIGHT, timeText);
+			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_RIGHT, time));
+		}*/
+
+		last_getting_balls = getting_balls;
+
 		vx_buffer_swap(vx_world_get_buffer(new_world, "text"));
 		usleep(25000);
 	}

@@ -9,7 +9,7 @@
 #define COLOR_THRESHOLD 100.0
 #define TEMPLATE_PX 0xff32ffff
 #define SHOW_PX 0xffe127ff
-#define MIN_PXS 125
+#define MIN_PXS 75
 #define MAX_PXS 400
 #define MAX_NUM_NEIGHBORS 8
 #define MAX_NUM_BALLS 1500

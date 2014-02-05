@@ -189,6 +189,8 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		for(int i = 1; i < 4; i++){
 			servos[i] = -servos[i];
 		}
+	}else if(servos[0] < (M_PI-.2)){
+		servos[0] += .2;
 	}
 
 	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
@@ -356,6 +358,10 @@ static void lcm_delegator( const lcm_recv_buf_t *rbuf,
     } 
 }
 
+double calc_dist(double x1, double y1, double x2, double y2) {
+    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
+}
+
 static void ball_positions_handler( const lcm_recv_buf_t *rbuf,
                            const char *channel,
                            const ball_list_t *msg,
@@ -363,12 +369,22 @@ static void ball_positions_handler( const lcm_recv_buf_t *rbuf,
 {
     state_t* state = user;
     state->num_balls = msg->len;
-    int i;
-    for (i = 0; i < state->num_balls; i++) {
-        state->balls[i].x = msg->balls[i].x;
-        state->balls[i].y = msg->balls[i].y;
-        state->balls[i].num_pxs = msg->balls[i].num_pxs;
-    } 
+	int num_balls = state->num_balls;
+    int i, k, x, y, r;
+    for (i = 0, k = 0; i < state->num_balls; i++) {
+		x = msg->balls[i].x;
+		y = -1 * msg->balls[i].y;
+		r = calc_dist(x,y,0,0);
+		if (!(r > MAX_RADIUS || fabs(x) > 29.5 || fabs(y) > 29.5 || (y > -8 && y < 8 && x < 0))) {
+		    state->balls[k].x = msg->balls[i].x;
+		    state->balls[k].y = msg->balls[i].y;
+		    state->balls[k].num_pxs = msg->balls[i].num_pxs;
+			k++;
+		}else{
+			num_balls--;
+		}
+    }
+	state->num_balls = num_balls;
 }
 
 static void arm_action_handler( const lcm_recv_buf_t *rbuf,
@@ -475,30 +491,36 @@ void click_handler(const lcm_recv_buf_t *rbuf,
 	pickUpBall(state, theta, r);
 }
 
-double calc_dist(double x1, double y1, double x2, double y2) {
-    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
-}
-
 int getNextBall(state_t * state, ball_info_t * rtnBall) {
     int num_balls = state->num_balls;
-    double x, y, r;
+    double y;
     int isBall = 0;
     assert(num_balls > 0);
     ball_info_t max_ball = state->balls[0];
     double min_dist = calc_dist(state->cur_x, state->cur_y, max_ball.x, max_ball.y);
     double cur_dist;
-    for(int i = 0; i < num_balls; ++i) {
-	x = state->balls[i].x;
-	y = -1 * state->balls[i].y;
-	r = calc_dist(x,y,0,0);
-	if (!(r > MAX_RADIUS || (y > -12 && y < 12 && x < 0))) {
-	    cur_dist = calc_dist(state->cur_x, state->cur_y,
-		    state->balls[i].x, state->balls[i].y);
-	    if( cur_dist < min_dist || !isBall) {
-		max_ball = state->balls[i];
-	    }
-	    isBall = 1;
+
+	int positivey = 0;
+	for(int i = 0; i < num_balls; i++){
+		y = -1 * state->balls[i].y;
+		if(y >= 0){
+			printf("Positive ball at %f, with %i balls\n", y, num_balls);
+			positivey = 1;
+			break;
+		}
 	}
+
+    for(int i = 0; i < num_balls; ++i) {
+	y = -1 * state->balls[i].y;
+	if(positivey && y < 0){
+		continue;
+	}
+    cur_dist = calc_dist(state->cur_x, state->cur_y,
+	    state->balls[i].x, state->balls[i].y);
+    if( cur_dist < min_dist || !isBall) {
+	max_ball = state->balls[i];
+    }
+    isBall = 1;
     }
     if(isBall) {
 	rtnBall->x = max_ball.x;

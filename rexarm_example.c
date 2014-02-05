@@ -515,12 +515,12 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
 	if(positivey && y < 0){
 		continue;
 	}
-    cur_dist = calc_dist(state->cur_x, state->cur_y,
-	    state->balls[i].x, state->balls[i].y);
-    if( cur_dist < min_dist || !isBall) {
-	max_ball = state->balls[i];
-    }
-    isBall = 1;
+	    cur_dist = calc_dist(state->cur_x, state->cur_y,
+		    state->balls[i].x, state->balls[i].y);
+	    if( cur_dist < min_dist || !isBall) {
+		max_ball = state->balls[i];
+	    }
+	    isBall = 1;
     }
     if(isBall) {
 	rtnBall->x = max_ball.x;

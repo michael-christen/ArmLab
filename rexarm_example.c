@@ -96,6 +96,7 @@ static int64_t utime_now()
 void getServoAngles(double *servos, double theta, double r, double height) {
     if (r == 0) {
         int i;
+        servos[0] = cur_positions[0];
         for (i = 1; i < NUM_SERVOS; i++) {
             servos[i] = 0;
         }
@@ -182,6 +183,14 @@ void getServoAngles(double *servos, double theta, double r, double height) {
             servos[3] = PI - t4a;
         }
     }
+	
+	if(servos[0] < 0){
+		servos[0] += M_PI-.1;
+		for(int i = 1; i < 4; i++){
+			servos[i] = -servos[i];
+		}
+	}
+
 	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);
 }
 
@@ -213,6 +222,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     double positions[NUM_SERVOS];
     for(int i = 0; i < NUM_SERVOS; i++){
 	positions[i] = cur_positions[i];
+	    RADIAN_ERROR += 0.01;
     }
     positions[4] = 0;
     //Inits positions to desired theta, r, height
@@ -225,6 +235,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
     }	//Don't change claw if other value
 
     // Send LCM commands to arm.
+    printf("Servo 0: %f\n", positions[0]);
     for (int id = 0; id < NUM_SERVOS; id++) {
 	cmds.commands[id].utime = utime_now();
 	cmds.commands[id].position_radians = positions[id];
@@ -302,7 +313,7 @@ void dropBall(state_t* state){
     double torque = 0.7;
     
     printf("cur theta: %f\n", cur_positions[0]);
-    if (cur_positions[0] > 0) {
+    if (cur_positions[0] > 0 && cur_positions[3] > 0) {
         theta = 3.1;
     } else {
         theta = -3.1;

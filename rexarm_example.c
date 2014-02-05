@@ -189,6 +189,8 @@ void getServoAngles(double *servos, double theta, double r, double height) {
 		for(int i = 1; i < 4; i++){
 			servos[i] = -servos[i];
 		}
+	}else if(servos[0] < (M_PI-.1)){
+		servos[0] += .1;
 	}
 
 	printf("servos - %f, %f, %f\n", servos[1], servos[2], servos[3]);

@@ -83,7 +83,7 @@ dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
 
 double dropHeight = 12;
-double pickupHeight = 6;
+double pickupHeight = 8;
 double rCritDueToPickupHeight;
 
 double UL_scaling_factor = 4.594595;
@@ -138,7 +138,7 @@ void getServoAngles(double *servos, double theta, double r, double height) {
             // height < ARM_L1 && r >= rCrit
             printf("Angle case 1\n");
             double yDisp, h, t2a, t2b, t4a;
-
+            height += (3 * ARM_CLAW_WIDTH / 4) * ((r - rCrit) / (MAX_RADIUS - rCrit));
             yDisp = ARM_L1 - height;
             h = sqrt(pow(r, 2) + pow(yDisp, 2));
             t2a = atan(r / yDisp);
@@ -303,7 +303,7 @@ double calc_dist(double x1, double y1, double x2, double y2) {
 
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
-    double speed = 0.1;
+    double speed = 1.0;
     double speedSlow = 0.4;
     double speedSlowest = 0.05;
     double torque = 0.8;
@@ -318,15 +318,24 @@ void pickUpBall(state_t* state, double theta, double r){
     }*/
 
     double intr = r;
-    if(r <= rCritDueToPickupHeight){
+    //if(r <= rCritDueToPickupHeight){
 	intr = 25;	//drop r
-    }
+    //}
     if(state->cur_x < -10 && state->cur_y > -12 && state->cur_y < 12){//(cur_positions[0] > (M_PI - .1) || cur_positions[0] < .1 )){
+	printf("I'm here\n");
 	if(theta >= 0 && fabs(cur_positions[3] > .1)){
+	    printf("I'm over here\n");
 	    sendCommand(state, 2.6, intr, dropHeight, 1, speed, torque);
-	}else if(cur_positions[0] < .1){
+	}else if(cur_positions[0] <= .3){
+	    printf("I'm yoyo\n");
 	    sendCommand(state, -2.6, intr, dropHeight, 1, speed, torque);
 	}
+	else {
+	    printf("I'm mama\n");
+	}
+    }
+    else {
+	printf("I'm Everywhere......\n");
     }
     
     printf("1\n");
@@ -340,9 +349,9 @@ void pickUpBall(state_t* state, double theta, double r){
    	 sendCommand(state, theta, r, 3, 1, speedSlow, torque);
     }
     printf("4\n");
-    sendCommand(state, theta, r, 1, 1, speedSlowest, torque);
+    sendCommand(state, theta, r, 1.5, 1, speedSlowest, torque);
     printf("5\n");
-    sendCommand(state, theta, r, 1, 0, speedSlow * 2, torque);
+    sendCommand(state, theta, r, 1.5, 0, speedSlow * 2, torque);
     printf("6\n");
     sendCommand(state, theta, r, pickupHeight, 0, speed, torque);	
     printf("Finish\n");
@@ -352,7 +361,7 @@ void dropBall(state_t* state){
     //printf("pickupBall\n");
     double theta;
     double r = 25;
-    double speed = 0.1;
+    double speed = 1.0;
     double torque = 0.7;
 
     double curR = calc_dist(state->cur_x, state->cur_y, 0, 0);

@@ -303,7 +303,7 @@ double calc_dist(double x1, double y1, double x2, double y2) {
 
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
-    double speed = 1.0;
+    double speed = 0.1;
     double speedSlow = 0.4;
     double speedSlowest = 0.05;
     double torque = 0.8;
@@ -352,7 +352,7 @@ void dropBall(state_t* state){
     //printf("pickupBall\n");
     double theta;
     double r = 25;
-    double speed = 1.0;
+    double speed = 0.1;
     double torque = 0.7;
 
     double curR = calc_dist(state->cur_x, state->cur_y, 0, 0);
@@ -707,7 +707,7 @@ void* statusListener(void *data){
 }
 
 void* driver_monitor(void *data){
-	int systemTry = system("bash $HOME/eecs467/bin/driver_monitor.sh");
+	int systemTry = system("bash driver_monitor.sh");
 	if(systemTry){}	//ignore status
 
 	return NULL;

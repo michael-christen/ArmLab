@@ -83,6 +83,7 @@ int neverMoved = 1;
 
 double dropHeight = 12;
 double pickupHeight = 6;
+double rCritDueToPickupHeight;
 
 double UL_scaling_factor = 4.594595;
 
@@ -288,13 +289,17 @@ void closeClaw(state_t* state, double theta, double r, double height){
 	sendCommand(state, theta, r, height, 0, .7, .5);
 }
 
+double calc_dist(double x1, double y1, double x2, double y2) {
+    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
+}
+
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
     double speed = 1.0;
     double speedSlow = 0.3;
     double speedSlowest = 0.05;
     double torque = 0.7;
-    double interumTheta = 2.8;
+   /* double interumTheta = 2.8;
 
     if (cur_positions[0] > interumTheta) {
         // This is an interum step after the arm has dropped off a ball at the basket
@@ -302,6 +307,18 @@ void pickUpBall(state_t* state, double theta, double r){
         // arm to prevent the arm colliding with itself
         printf("0\n");
         sendCommand(state, interumTheta, r, dropHeight, 1, speed, torque);
+    }*/
+
+    double intr = r;
+    if(r <= rCritDueToPickupHeight){
+	intr = 25;	//drop r
+    }
+    if((cur_positions[0] > (M_PI - .1) || cur_positions[0] < .1 )){
+	if(theta >= 0 && fabs(cur_positions[3] > .1)){
+	    sendCommand(state, 2.6, intr, dropHeight, 1, speed, torque);
+	}else if(cur_positions[0] < .1){
+	    sendCommand(state, -2.6, intr, dropHeight, 1, speed, torque);
+	}
     }
     
     printf("1\n");
@@ -325,6 +342,12 @@ void dropBall(state_t* state){
     double r = 25;
     double speed = 1.0;
     double torque = 0.7;
+
+    double curR = calc_dist(state->cur_x, state->cur_y, 0, 0);
+    double inttheta = (cur_positions[3] > 0 ? cur_positions[0] : -cur_positions[0]);
+    if(curR <= rCritDueToPickupHeight){
+	    sendCommand(state, inttheta, rCritDueToPickupHeight + 1, dropHeight, 0, speed, torque);
+    }
     
     printf("cur theta: %f\n", cur_positions[0]);
     if (cur_positions[0] > 0 && cur_positions[3] > 0) {
@@ -406,7 +429,7 @@ static void arm_action_handler( const lcm_recv_buf_t *rbuf,
 }
 
 void* lcm_handle_loop(void *data)
-{
+{ 
     state_t *state = data;
     //Get updated status
     dynamixel_status_list_t_subscribe(state->lcm,
@@ -486,10 +509,6 @@ void click_handler(const lcm_recv_buf_t *rbuf,
     }
     printf("r: %f\n", r);
 	pickUpBall(state, theta, r);
-}
-
-double calc_dist(double x1, double y1, double x2, double y2) {
-    return sqrt(pow(x1-x2,2)+pow(y1-y2,2));
 }
 
 int getNextBall(state_t * state, ball_info_t * rtnBall) {
@@ -694,6 +713,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
     
+    rCritDueToPickupHeight =  sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4 + pickupHeight - ARM_L1, 2));
     start_cmd = 0;
     end_cmd = 0;
     state_t *state = malloc(sizeof(state_t));

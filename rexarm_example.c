@@ -52,6 +52,7 @@ struct state
     pthread_t status_thread;
     pthread_t command_mail_thread;
     pthread_t gui_thread;
+    pthread_t driver_thread;
     
     ball_info_t balls[MAX_NUM_BALLS];
 
@@ -237,12 +238,19 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	closeClawAngles(positions);
     }	//Don't change claw if other value
 
+    int reduceSpeed = 0;
+    if(((theta < 0 && cur_positions[3] > 0) || (theta >= 0 && cur_positions[3] < 0)) && r){
+	reduceSpeed = 1;
+    }
     // Send LCM commands to arm.
     for (int id = 0; id < NUM_SERVOS; id++) {
 	cmds.commands[id].utime = utime_now();
 	cmds.commands[id].position_radians = positions[id];
 	global_cmds.commands[id].position_radians = positions[id];
 	cmds.commands[id].speed = speed;
+	if(reduceSpeed && id > 0 && id < 4){
+		cmds.commands[id].speed -= .5;
+	}
 	cmds.commands[id].max_torque = torque;
     }
     //Send it after get signal from status
@@ -296,9 +304,9 @@ double calc_dist(double x1, double y1, double x2, double y2) {
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
     double speed = 1.0;
-    double speedSlow = 0.3;
+    double speedSlow = 0.4;
     double speedSlowest = 0.05;
-    double torque = 0.7;
+    double torque = 0.8;
    /* double interumTheta = 2.8;
 
     if (cur_positions[0] > interumTheta) {
@@ -313,7 +321,7 @@ void pickUpBall(state_t* state, double theta, double r){
     if(r <= rCritDueToPickupHeight){
 	intr = 25;	//drop r
     }
-    if((cur_positions[0] > (M_PI - .1) || cur_positions[0] < .1 )){
+    if(state->cur_x < -10 && state->cur_y > -12 && state->cur_y < 12){//(cur_positions[0] > (M_PI - .1) || cur_positions[0] < .1 )){
 	if(theta >= 0 && fabs(cur_positions[3] > .1)){
 	    sendCommand(state, 2.6, intr, dropHeight, 1, speed, torque);
 	}else if(cur_positions[0] < .1){
@@ -326,7 +334,11 @@ void pickUpBall(state_t* state, double theta, double r){
     printf("2\n");
     sendCommand(state, theta, r, 7, 1, speed, torque);
     printf("3\n");
-    sendCommand(state, theta, r, 4, 1, speedSlow, torque);
+    if(r <= rCritDueToPickupHeight){
+	sendCommand(state, theta, r, 2, 1, speedSlow, torque);
+    }else{
+   	 sendCommand(state, theta, r, 3, 1, speedSlow, torque);
+    }
     printf("4\n");
     sendCommand(state, theta, r, 1, 1, speedSlowest, torque);
     printf("5\n");
@@ -694,6 +706,13 @@ void* statusListener(void *data){
 	return NULL;
 }
 
+void* driver_monitor(void *data){
+	int systemTry = system("bash $HOME/eecs467/bin/driver_monitor.sh");
+	if(systemTry){}	//ignore status
+
+	return NULL;
+}
+
 // This subscribes to the status messages sent out by the arm, displaying servo
 // state in the terminal. It also sends messages to the arm ordering it to the
 // "home" position (all servos at 0 radians).
@@ -737,6 +756,9 @@ int main(int argc, char **argv)
 	state->ball_channel = getopt_get_string(gopt, "ball-channel");
 	state->action_channel = getopt_get_string(gopt, "action-channel");
 
+    //Runs a script in a separate thread which constantly monitors rexarm driver
+    //and restarts it if it is not running
+    pthread_create(&state->driver_thread, NULL, driver_monitor, state);
     //Handles incoming lcm messages and redirects to commandListener
     //or status Listener
     pthread_create(&state->lcm_handle_thread, NULL, lcm_handle_loop, state);

@@ -80,7 +80,6 @@ pthread_cond_t status_cv, status_exit_cv;
 
 dynamixel_command_list_t global_cmds;
 int neverMoved = 1;
-int hasMoved;
 
 double dropHeight = 12;
 double pickupHeight = 6;
@@ -297,14 +296,12 @@ void pickUpBall(state_t* state, double theta, double r){
     double torque = 0.7;
     double interumTheta = 2.8;
 
-    if (hasMoved == 1) {
+    if (cur_positions[0] > interumTheta) {
         // This is an interum step after the arm has dropped off a ball at the basket
         // This moves the arm just clear of the bucket, and lowers the height of the
         // arm to prevent the arm colliding with itself
         printf("0\n");
         sendCommand(state, interumTheta, r, dropHeight, 1, speed, torque);
-    } else {
-        hasMoved = 1;
     }
     
     printf("1\n");
@@ -397,7 +394,6 @@ static void arm_action_handler( const lcm_recv_buf_t *rbuf,
     if (msg->getBalls == 1) {
         printf("Received message to get teh ballzz %d %d\n", state->gettingBalls, msg->getBalls);
         state->gettingBalls = 1;
-        hasMoved = 0;        
     } else {
         printf("K, stop getting teh ballz\n");
         state->gettingBalls = 0;

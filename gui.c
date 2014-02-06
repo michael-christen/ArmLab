@@ -886,7 +886,7 @@ void* render_status(void* data){
 		int balls_valid[num_balls];
 		
 		for(int i = 0; i < num_balls; i++){
-		      if(balls[i].y > -9 && balls[i].y < 9 && balls[i].x < 0){
+		      if(balls[i].y > -9 && balls[i].y < 9 && balls[i].x < -13){
 		            num_valid_balls--;
 		            balls_valid[i] = 0;
 		      }else{

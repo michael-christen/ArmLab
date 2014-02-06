@@ -345,6 +345,9 @@ void dropBall(state_t* state){
 
     double curR = calc_dist(state->cur_x, state->cur_y, 0, 0);
     double inttheta = (cur_positions[3] > 0 ? cur_positions[0] : -cur_positions[0]);
+    if(cur_positions[0] < M_PI/2.0 && cur_positions[3] < 0){
+	inttheta -= M_PI/2.0;
+    }
     if(curR <= rCritDueToPickupHeight){
 	    sendCommand(state, inttheta, rCritDueToPickupHeight + 1, dropHeight, 0, speed, torque);
     }
@@ -525,7 +528,7 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
 		x = state->balls[i].x;
 		y = -1 * state->balls[i].y;
 		r = calc_dist(x,y,0,0);
-		if(y >= 0 && !(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < 0))){
+		if(y >= 0 && !(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < -13))){
 			positivey = 1;
 			break;
 		}
@@ -538,7 +541,7 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
 		continue;
 	}
 	r = calc_dist(x,y,0,0);
-	if (!(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < 0))) {
+	if (!(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < -13))) {
 	    cur_dist = calc_dist(state->cur_x, state->cur_y,
 		    state->balls[i].x, state->balls[i].y);
 	    if( cur_dist < min_dist || !isBall) {

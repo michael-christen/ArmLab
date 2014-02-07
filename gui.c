@@ -43,9 +43,12 @@ pthread_mutex_t ball_mutex;
 //These are variables for the equation
 // x = ax + by + c, y = dx + ey + f
 double scalingFactors[6] = {1,0,0,0,1,0};
+double iscalingFactors[6] = {1,0,0,0,1,0};
 //Pixel samples
 //px, py, 1
+int calibrated = 0;
 double samples[3*NUM_SAMPLES_FOR_ISCALING];
+double isamples[2*NUM_SAMPLES_FOR_ISCALING];
 int numSamples = 0;
 pthread_mutex_t scaling_mutex;
 pthread_cond_t scaling_cv;
@@ -69,6 +72,16 @@ void* initScalingFactors(void *data) {
 	-14.9, 15.3,
 	-15.0, -0.2 
     };
+    double ipositions[3*NUM_SAMPLES_FOR_ISCALING] = {
+	-15.1, -14.9, 1.0,
+	0.2,   -15.3, 1.0,
+	14.9,  -15.1, 1.0,
+	15.3,  0.6, 1.0,
+	15.3,  15, 1.0,
+	-0.1,  15.3, 1.0,
+	-14.9, 15.3, 1.0,
+	-15.0, -0.2,  1.0
+    };
     pthread_mutex_lock(&scaling_mutex);
 
     while(numSamples < NUM_SAMPLES_FOR_ISCALING) {
@@ -80,23 +93,37 @@ void* initScalingFactors(void *data) {
     //0,  0 , 0, px, py, 1
     //Samples
     matd_t *sample_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 3, samples);
+    matd_t *isample_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, isamples);
 
     pthread_mutex_unlock(&scaling_mutex);
     //Positions
     matd_t *pos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 2, positions);
+    matd_t *ipos_mat = matd_create_data(NUM_SAMPLES_FOR_ISCALING, 3, ipositions);
     //x = inv(trans(A)*A)*trans(A)*b
     matd_t * sol_mat = matd_op("(M' * M)^-1 * M' * M", sample_mat,sample_mat,sample_mat, pos_mat);
-    
+    matd_t * isol_mat = matd_op("(M' * M)^-1 * M' * M", ipos_mat, ipos_mat, ipos_mat, isample_mat);
+
+    /*printf("Inverted solution matrix\n");
+    matd_print(isol_mat, " %lf ");
+
     printf("Position matrix\n");
     matd_print(pos_mat, " %lf ");
+
+    printf("Inverted Position matrix\n");
+    matd_print(ipos_mat, " %lf ");
 
     printf("Sample matrix\n");
     matd_print(sample_mat, " %lf ");
 
+    printf("Inverted Sample matrix\n");
+    matd_print(isample_mat, " %lf ");*/
+
     for(i = 0; i < 6; ++i) {
 	scalingFactors[i] = matd_get(sol_mat,i%3,i/3);
-	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
+	iscalingFactors[i] = matd_get(isol_mat, i%3, i/3);
+	//printf("Scaling factor (%d) = %f\n",i, iscalingFactors[i]);
     }
+    calibrated = 1;
 
     //Clean up
     matd_destroy(sample_mat);
@@ -201,12 +228,15 @@ static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid
+		printf("realx: %f, realy: %f\n", mouse->x, mouse->y);
 		printf("x: %f, y: %f, z: %f\n", man_point[0], man_point[1], man_point[2]);
 		if(calib_cam && numSamples < NUM_SAMPLES_FOR_ISCALING) {
 		    //???Need to convert this to picture pixels 
 		    samples[numSamples*3] = man_point[0];
 		    samples[numSamples*3+1] = man_point[1];
 		    samples[numSamples*3+2] = 1;
+		    isamples[numSamples*2] = man_point[0];
+		    isamples[numSamples*2 + 1] = man_point[1];
 		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
 			pthread_cond_signal(&scaling_cv);
 		    }
@@ -332,10 +362,12 @@ void* render_camera(void *data)
 	vx_layer_set_display(layer, key);
 
 	zhash_put(gstate->layers, &key, &layer, NULL, NULL);
+	int camera_width = 1296;
+	int camera_height = 964;
 
 	float position[4] = {0.5f, 0.5f, 0.5f, 0.5f};
 	float lowLeft[2] = {0, 0};
-	float upRight[2] = {1296, 964};	//Camera dimensions
+	float upRight[2] = {camera_width, camera_height};	//Camera dimensions
 
 	vx_layer_set_viewport_rel(layer, position);
 	vx_layer_add_event_handler(layer, my_event_handler);
@@ -412,26 +444,48 @@ void* render_camera(void *data)
                                                  vim));
                     vx_buffer_swap(vx_world_get_buffer(new_world, "image"));
 
-		    /*
-		    vx_object_t * vo = vxo_chain(
-			    vxo_mat_translate3(state->tm_x +
-				(state->template_im->width >> 1),
-				state->query_im->height - state->tm_y -
-				(state->template_im->width >> 1), 0),
-			    vxo_mat_scale3(state->template_im->width,state->template_im->height,1),
-			    vxo_box(vxo_lines_style(vx_purple, 3))
-			    );
-			    */
-		    /*
-		    vx_object_t * vo =
-			vxo_chain(
-				vxo_mat_scale3(500, 500, 1),
-				vxo_box(vxo_lines_style(vx_purple, 3))
-			);
-		    vx_buffer_add_back(vx_world_get_buffer(new_world, "square"), vo);
-		    vx_buffer_swap(vx_world_get_buffer(new_world, "square"));
-		    */
+		    if(calibrated){
+			    double xaxisx0 = iscalingFactors[0] * 31 + iscalingFactors[2];
+			    double xaxisy0 = iscalingFactors[3] * 31 + iscalingFactors[5];
+			    double xaxisx1 = iscalingFactors[0] * -31 + iscalingFactors[2];
+			    double xaxisy1 = iscalingFactors[3] * -31 + iscalingFactors[5];
+			    double yaxisx0 = iscalingFactors[1] * 31 + iscalingFactors[2];
+			    double yaxisy0 = iscalingFactors[4] * 31 + iscalingFactors[5];
+			    double yaxisx1 = iscalingFactors[1] * -31 + iscalingFactors[2];
+			    double yaxisy1 = iscalingFactors[4] * -31 + iscalingFactors[5];
+			    float points [12] = {xaxisx0, xaxisy0, camera_zoom+1, xaxisx1, xaxisy1, camera_zoom+1,
+				yaxisx0, yaxisy0, camera_zoom+1, yaxisx1, yaxisy1, camera_zoom+1};
+			    int npoints = 4;
+			    vx_resc_t *verts = vx_resc_copyf(points, npoints*3);
+			    vx_buffer_add_back(vx_world_get_buffer(new_world, "lines"),
+				vxo_lines(verts, npoints, GL_LINES, vxo_points_style(vx_red, 3.0f)));
+			    vx_buffer_swap(vx_world_get_buffer(new_world, "lines"));
+			
+			    //printf("%f, %f, is above origin at %f, %f\n", xaxisx, xaxisy, iscalingFactors[2], iscalingFactors[5]);
+			    /*double difx = xaxisx - iscalingFactors[2];
+			    double dify = xaxisy - iscalingFactors[5];
+			    double theta = atan(dify/difx);
+			    //printf("dfix: %f, dify: %f\n", difx, dify);
+			    //printf("theta: %f\n", theta);
 
+			    vx_buffer_add_back(vx_world_get_buffer(new_world, "crossx"),
+				vxo_chain(vxo_mat_translate3(camera_width/2.0, iscalingFactors[5], camera_zoom),
+				vxo_mat_rotate_z(theta),
+				vxo_mat_scale3(camera_width, 1, 1),
+				vxo_rect(vxo_mesh_style(vx_red),
+				vxo_lines_style(vx_red, 2.0f),
+				vxo_points_style(vx_red, 2.0f))));
+			    vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
+
+			    vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
+				vxo_chain(vxo_mat_translate3(iscalingFactors[2], camera_height/2.0, camera_zoom),
+				vxo_mat_rotate_z(theta),
+				vxo_mat_scale3(1, camera_height, 1),
+				vxo_rect(vxo_mesh_style(vx_red),
+				vxo_lines_style(vx_red, 2.0f),
+				vxo_points_style(vx_red, 2.0f))));
+			    vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));*/
+		    }
 
                     image_u32_destroy(im);
                 }

@@ -1,4 +1,4 @@
 struct arm_action_t
 {
-  int16_t getBalls, goToHome;
+  int16_t getBalls, goToHome, goToPoint, x, y;
 }

@@ -148,20 +148,23 @@ void my_param_changed(parameter_listener_t *pl, parameter_gui_t *pg, const char 
 	} else if (!strcmp("but2", name)){
 		arm_action_t arm_action;
 	    arm_action.getBalls = 1;
-	    arm_action.goToHome = 0;	    
+	    arm_action.goToHome = 0;
+	    arm_action.x = arm_action.y = arm_action.goToPoint = 0;   
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	    getting_balls = 1;
 	    ball_clock = clock();
 	} else if (!strcmp("but3", name)){
 		arm_action_t arm_action;
 	    arm_action.getBalls = 0;
-	    arm_action.goToHome = 0;	    
+	    arm_action.goToHome = 0;
+	    arm_action.x = arm_action.y = arm_action.goToPoint = 0;    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	    getting_balls = 0;
 	} else if (!strcmp("but4", name)){
 		arm_action_t arm_action;
 	    arm_action.getBalls = 0;
-	    arm_action.goToHome = 1;	    
+	    arm_action.goToHome = 1;
+	    arm_action.x = arm_action.y = arm_action.goToPoint = 0;    
 	    arm_action_t_publish(lcm, action_channel, &arm_action);
 	} else {
         printf("%s changed\n", name);
@@ -247,16 +250,12 @@ static int custom_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		vx_ray3_intersect_xy(&ray, 0.0, man_point);
 		printf("x: %f, man_x: %f\n", mouse->x, man_point[0]);
 		printf("y: %f, man_y: %f\n", mouse->y, man_point[1]);
-		dynamixel_status_list_t stats;
-		stats.len = 1;
-		stats.statuses = malloc(sizeof(dynamixel_status_t));
-		stats.statuses[0].utime = utime_now();
-		stats.statuses[0].speed = man_point[0]; 
-		stats.statuses[0].load = man_point[1];
-		stats.statuses[0].voltage = DISPLAY_H;
-		stats.statuses[0].temperature = DISPLAY_W;
-		stats.statuses[0].error_flags = 0;
-		dynamixel_status_list_t_publish(lcm, gui_channel, &stats);
+		arm_action_t arm_action;
+	    arm_action.getBalls = arm_action.goToHome = 0;
+	    arm_action.goToPoint = 1;
+	    arm_action.x = man_point[0];
+	    arm_action.y = man_point[1];
+	    arm_action_t_publish(lcm, action_channel, &arm_action);
 		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid

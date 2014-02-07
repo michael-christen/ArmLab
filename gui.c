@@ -459,31 +459,6 @@ void* render_camera(void *data)
 			    vx_buffer_add_back(vx_world_get_buffer(new_world, "lines"),
 				vxo_lines(verts, npoints, GL_LINES, vxo_points_style(vx_red, 3.0f)));
 			    vx_buffer_swap(vx_world_get_buffer(new_world, "lines"));
-			
-			    //printf("%f, %f, is above origin at %f, %f\n", xaxisx, xaxisy, iscalingFactors[2], iscalingFactors[5]);
-			    /*double difx = xaxisx - iscalingFactors[2];
-			    double dify = xaxisy - iscalingFactors[5];
-			    double theta = atan(dify/difx);
-			    //printf("dfix: %f, dify: %f\n", difx, dify);
-			    //printf("theta: %f\n", theta);
-
-			    vx_buffer_add_back(vx_world_get_buffer(new_world, "crossx"),
-				vxo_chain(vxo_mat_translate3(camera_width/2.0, iscalingFactors[5], camera_zoom),
-				vxo_mat_rotate_z(theta),
-				vxo_mat_scale3(camera_width, 1, 1),
-				vxo_rect(vxo_mesh_style(vx_red),
-				vxo_lines_style(vx_red, 2.0f),
-				vxo_points_style(vx_red, 2.0f))));
-			    vx_buffer_swap(vx_world_get_buffer(new_world, "crossx"));
-
-			    vx_buffer_add_back(vx_world_get_buffer(new_world, "crossy"),
-				vxo_chain(vxo_mat_translate3(iscalingFactors[2], camera_height/2.0, camera_zoom),
-				vxo_mat_rotate_z(theta),
-				vxo_mat_scale3(1, camera_height, 1),
-				vxo_rect(vxo_mesh_style(vx_red),
-				vxo_lines_style(vx_red, 2.0f),
-				vxo_points_style(vx_red, 2.0f))));
-			    vx_buffer_swap(vx_world_get_buffer(new_world, "crossy"));*/
 		    }
 
                     image_u32_destroy(im);

@@ -333,39 +333,22 @@ void pickUpBall(state_t* state, double theta, double r){
 	intr = 25;	//drop r
     //}
     if(state->cur_x < -10 && state->cur_y > -12 && state->cur_y < 12){//(cur_positions[0] > (M_PI - .1) || cur_positions[0] < .1 )){
-	printf("I'm here\n");
 	if(theta >= 0 && fabs(cur_positions[3] > .1)){
-	    printf("I'm over here\n");
 	    sendCommand(state, 2.6, intr, dropHeight, 1, speed, torque);
 	}else if(cur_positions[0] <= .3){
-	    printf("I'm yoyo\n");
 	    sendCommand(state, -2.6, intr, dropHeight, 1, speed, torque);
 	}
-	else {
-	    printf("I'm mama\n");
-	}
     }
-    else {
-	printf("I'm Everywhere......\n");
-    }
-    
-    printf("1\n");
     sendCommand(state, theta, r, pickupHeight, 1, speed, torque);
-    printf("2\n");
     sendCommand(state, theta, r, pickupHeight - 1, 1, speedThreeQuarters, torque);
-    printf("3\n");
     if(r <= rCritDueToPickupHeight){
 	sendCommand(state, theta, r, 2, 1, speedHalf, torque);
     }else{
    	 sendCommand(state, theta, r, 3, 1, speedQuarter, torque);
     }
-    printf("4\n");
     sendCommand(state, theta, r, 1.5, 1, speedSlowest, torque);
-    printf("5\n");
     sendCommand(state, theta, r, 1.5, 0, speedQuarter, torque);
-    printf("6\n");
     sendCommand(state, theta, r, pickupHeight, 0, speed, torque);	
-    printf("Finish\n");
 }
 
 void dropBall(state_t* state){

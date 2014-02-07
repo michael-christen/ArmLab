@@ -62,6 +62,7 @@ clock_t ball_clock;
 void* initScalingFactors(void *data) {
     int i;
     //X, Y positions for calibration
+   
     double positions[2*NUM_SAMPLES_FOR_ISCALING] = {
 	-15.1, -14.9,
 	0.2,   -15.3,
@@ -72,6 +73,7 @@ void* initScalingFactors(void *data) {
 	-14.9, 15.3,
 	-15.0, -0.2 
     };
+    
     double ipositions[3*NUM_SAMPLES_FOR_ISCALING] = {
 	-15.1, -14.9, 1.0,
 	0.2,   -15.3, 1.0,
@@ -103,25 +105,36 @@ void* initScalingFactors(void *data) {
     matd_t * sol_mat = matd_op("(M' * M)^-1 * M' * M", sample_mat,sample_mat,sample_mat, pos_mat);
     matd_t * isol_mat = matd_op("(M' * M)^-1 * M' * M", ipos_mat, ipos_mat, ipos_mat, isample_mat);
 
-    /*printf("Inverted solution matrix\n");
-    matd_print(isol_mat, " %lf ");
+    matd_t * solved_mat = matd_multiply(sample_mat, sol_mat);
 
-    printf("Position matrix\n");
-    matd_print(pos_mat, " %lf ");
+/*
+    printf("Inverted solution matrix\n");
+    matd_print(isol_mat, " %lf ");
 
     printf("Inverted Position matrix\n");
     matd_print(ipos_mat, " %lf ");
 
+    printf("Inverted Sample matrix\n");
+    matd_print(isample_mat, " %lf ");
+*/
+
     printf("Sample matrix\n");
     matd_print(sample_mat, " %lf ");
 
-    printf("Inverted Sample matrix\n");
-    matd_print(isample_mat, " %lf ");*/
+    printf("Solution matrix\n");
+    matd_print(sol_mat, " %lf ");
+
+    printf("Position matrix\n");
+    matd_print(pos_mat, " %lf ");
+
+    printf("Check matrix\n");
+    matd_print(solved_mat, " %lf ");
+
 
     for(i = 0; i < 6; ++i) {
 	scalingFactors[i] = matd_get(sol_mat,i%3,i/3);
 	iscalingFactors[i] = matd_get(isol_mat, i%3, i/3);
-	//printf("Scaling factor (%d) = %f\n",i, iscalingFactors[i]);
+	printf("Scaling factor (%d) = %f\n",i, scalingFactors[i]);
     }
     calibrated = 1;
 
@@ -129,6 +142,10 @@ void* initScalingFactors(void *data) {
     matd_destroy(sample_mat);
     matd_destroy(pos_mat);
     matd_destroy(sol_mat);
+    matd_destroy(isample_mat);
+    matd_destroy(ipos_mat);
+    matd_destroy(isol_mat);
+    matd_destroy(solved_mat);
     printf("Scaling Factors initialized\n");
     return NULL;
 }
@@ -231,6 +248,7 @@ static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		pthread_mutex_lock(&scaling_mutex);
 		//Clicked in camera area
 		//Not valid
+		man_point[1] = 964 - man_point[1];
 		printf("realx: %f, realy: %f\n", mouse->x, mouse->y);
 		printf("x: %f, y: %f, z: %f\n", man_point[0], man_point[1], man_point[2]);
 		if(calib_cam && numSamples < NUM_SAMPLES_FOR_ISCALING) {
@@ -239,7 +257,7 @@ static int camera_mouse_event(vx_event_handler_t *vh, vx_layer_t *vl, vx_camera_
 		    samples[numSamples*3+1] = man_point[1];
 		    samples[numSamples*3+2] = 1;
 		    isamples[numSamples*2] = man_point[0];
-		    isamples[numSamples*2 + 1] = man_point[1];
+		    isamples[numSamples*2 + 1] = 964 - man_point[1];
 		    if(++numSamples >= NUM_SAMPLES_FOR_ISCALING) {
 			pthread_cond_signal(&scaling_cv);
 		    }
@@ -317,15 +335,19 @@ static void eh_destroy(vx_event_handler_t * vh)
 
 void transform_balls() {
     int i;
+    ball_t temp_b;
     for(i = 0; i < num_balls; ++i) {
-	balls[i].x = 
+	temp_b.x = 
 	    scalingFactors[0]*balls[i].x +
 	    scalingFactors[1]*balls[i].y +
 	    scalingFactors[2];
-	balls[i].y = 
+	temp_b.y = 
 	    scalingFactors[3]*balls[i].x +
 	    scalingFactors[4]*balls[i].y +
 	    scalingFactors[5];
+      //  printf("Temp.x: %f, Ball.x: %f\n",temp_b.x, balls[i].x);
+       // printf("Temp.y: %f, Ball.y: %f\n",temp_b.y, balls[i].y);
+        balls[i] = temp_b;
     }
 }
 
@@ -435,7 +457,7 @@ void* render_camera(void *data)
                                                           VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
 							  */
                     vx_object_t *vim = vxo_image_from_u32(im,
-                                                          0,
+                                                          VXO_IMAGE_FLIPY,
                                                           VX_TEX_MIN_FILTER | VX_TEX_MAG_FILTER);
 
                     vx_buffer_add_back(vx_world_get_buffer(new_world, "image"),
@@ -907,8 +929,8 @@ void* render_status(void* data){
 		char timeText[64] = "";
 		
 		sprintf(angleText, " Servo angles:\n 0: [%f]\n 1: [%f]\n 2: [%f]\n 3: [%f]\n 4: [%f]\n 5: [%f]", servo_positions[0]-M_PI, servo_positions[1], servo_positions[2], servo_positions[3], servo_positions[4], servo_positions[5]);
-		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, angleText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, texta));
+		vx_object_t* texta = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_RIGHT, angleText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_RIGHT, texta));
 		
 		int num_valid_balls = num_balls;
 		int balls_valid[num_balls];
@@ -939,8 +961,8 @@ void* render_status(void* data){
 		}
 		//pthread_mutex_lock(&ball_mutex);
 		//printf("%s", statusText);
-		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_BOTTOM_LEFT, ballText);
-		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_BOTTOM_LEFT, textb));
+		vx_object_t* textb = vxo_text_create(VXO_TEXT_ANCHOR_TOP_LEFT, ballText);
+		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, textb));
 
 		vx_object_t* status;
 		vx_object_t* time;

@@ -56,8 +56,9 @@ struct state
     
     ball_info_t balls[MAX_NUM_BALLS];
 
-    volatile int gettingBalls, num_balls, goToHome;
+    volatile int gettingBalls, num_balls, goToHome, goToPoint;
     double cur_x, cur_y;
+    double pointX, pointY;
 };
 
 double cur_speeds[NUM_SERVOS];
@@ -136,9 +137,11 @@ void getServoAngles(double *servos, double theta, double r, double height) {
             servos[3] = PI - servos[1] - servos[2];
         } else {
             // height < ARM_L1 && r >= rCrit
+
             printf("Angle case 1\n");
             double yDisp, h, t2a, t2b, t4a;
-            height += (3 * ARM_CLAW_WIDTH / 4) * ((r - rCrit) / (MAX_RADIUS - rCrit));
+            // This increases the pickup height due to servo error when arm is flipped
+                height += (3 * ARM_CLAW_WIDTH / 4) * ((r - rCrit) / (MAX_RADIUS - rCrit));
             yDisp = ARM_L1 - height;
             h = sqrt(pow(r, 2) + pow(yDisp, 2));
             t2a = atan(r / yDisp);
@@ -148,6 +151,11 @@ void getServoAngles(double *servos, double theta, double r, double height) {
             servos[1] = PI - t2a - t2b;
             servos[2] = 0;
             servos[3] = PI - t4a;
+
+            if (theta < 0) {
+                servos[3] -= 0.05;
+                servos[1] -= 0.05;
+            }
         }
     } else {
         double rCrit = sqrt(pow(ARM_L2 + ARM_L3, 2) - pow(ARM_L4, 2));
@@ -229,6 +237,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	    RADIAN_ERROR += 0.01;
     }
     positions[4] = 0;
+
     //Inits positions to desired theta, r, height
     getServoAngles(positions, theta, r, height);
 
@@ -249,7 +258,7 @@ void* sendCommand(state_t* state, double theta, double r, double height, int cla
 	global_cmds.commands[id].position_radians = positions[id];
 	cmds.commands[id].speed = speed;
 	if(reduceSpeed && id > 0 && id < 4){
-		cmds.commands[id].speed -= .5;
+		cmds.commands[id].speed = cmds.commands[id].speed / 2;
 	}
 	cmds.commands[id].max_torque = torque;
     }
@@ -304,7 +313,9 @@ double calc_dist(double x1, double y1, double x2, double y2) {
 void pickUpBall(state_t* state, double theta, double r){
     //printf("pickupBall\n");
     double speed = 1.0;
-    double speedSlow = 0.4;
+    double speedThreeQuarters = 3 * speed / 4;
+    double speedHalf = speed/2;
+    double speedQuarter = speed/4;
     double speedSlowest = 0.05;
     double torque = 0.8;
    /* double interumTheta = 2.8;
@@ -341,17 +352,17 @@ void pickUpBall(state_t* state, double theta, double r){
     printf("1\n");
     sendCommand(state, theta, r, pickupHeight, 1, speed, torque);
     printf("2\n");
-    sendCommand(state, theta, r, 7, 1, speed, torque);
+    sendCommand(state, theta, r, pickupHeight - 1, 1, speedThreeQuarters, torque);
     printf("3\n");
     if(r <= rCritDueToPickupHeight){
-	sendCommand(state, theta, r, 2, 1, speedSlow, torque);
+	sendCommand(state, theta, r, 2, 1, speedHalf, torque);
     }else{
-   	 sendCommand(state, theta, r, 3, 1, speedSlow, torque);
+   	 sendCommand(state, theta, r, 3, 1, speedQuarter, torque);
     }
     printf("4\n");
     sendCommand(state, theta, r, 1.5, 1, speedSlowest, torque);
     printf("5\n");
-    sendCommand(state, theta, r, 1.5, 0, speedSlow * 2, torque);
+    sendCommand(state, theta, r, 1.5, 0, speedQuarter, torque);
     printf("6\n");
     sendCommand(state, theta, r, pickupHeight, 0, speed, torque);	
     printf("Finish\n");
@@ -447,8 +458,16 @@ static void arm_action_handler( const lcm_recv_buf_t *rbuf,
         stop_getting_balls();
     }
     
-    if (msg->goToHome == 1) {
-        state->goToHome = 1;
+    if (!state->gettingBalls) {
+        if (msg->goToHome == 1) {
+            state->goToHome = 1;
+        }
+
+        if (msg->goToPoint == 1) {
+            state->goToPoint = 1;
+            state->pointX = msg->x;
+            state->pointY = msg->y;
+        }
     }
 }
 
@@ -511,29 +530,28 @@ void* lcm_handle_loop(void *data)
 }
 
 //Only messages from bird's eye view will be sent
-void click_handler(const lcm_recv_buf_t *rbuf,
+/*void click_handler(const lcm_recv_buf_t *rbuf,
                            const dynamixel_status_list_t *msg,
                            void *user)
 {
     state_t* state = user;
 
     double x, y;
-    dynamixel_status_t stat = msg->statuses[0];
-    x = stat.speed;
-    y = stat.load;
+    x = state->pointX;
+    y = state->pointY;
 
     double r = sqrt(pow(x, 2) + pow(y, 2));
     double theta = atan(y/x);
 
     if(x < 0 && y > 0){
-	theta += M_PI;
+	   theta += M_PI;
     }
     if(x < 0 && y < 0){
-	theta -= M_PI;
+	   theta -= M_PI;
     }
     printf("r: %f\n", r);
 	pickUpBall(state, theta, r);
-}
+}*/
 
 int getNextBall(state_t * state, ball_info_t * rtnBall) {
     int num_balls = state->num_balls;
@@ -581,48 +599,74 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
 
 void* commandListener(void *data){
 	state_t* state = data;
+    double x, y;
 	while(1) {
 	    //printf("%d\n", state->gettingBalls);
 	    if (state->gettingBalls == 1) {
-		pthread_mutex_lock(&command_mutex);
+    		pthread_mutex_lock(&command_mutex);
+    		
+    		ball_info_t curBall;
+    	    int isBall = getNextBall(state, &curBall);
+    		x = curBall.x;
+    		y = -1 * curBall.y;
 
-		double x, y;
-		ball_info_t curBall;
-	        int isBall = getNextBall(state, &curBall);
-		x = curBall.x;
-		y = -1 * curBall.y;
+    		double r = calc_dist(x,y,0,0);
+    		double theta = atan(y/x);
 
-		double r = calc_dist(x,y,0,0);
-		double theta = atan(y/x);
+    		if(!isBall) {
+    		    // No valid balls left
+    		    printf("No more valid balls\n");
+    		    state->gettingBalls = 0;
+    		    stop_getting_balls();
+    		}
+    		else {
+    		    if(x < 0 && y > 0){
+    			 theta += M_PI;
+    		    }
+    		    if(x < 0 && y < 0){
+    			 theta -= M_PI;
+    		    }
+    		    printf("x: %f, y: %f, r: %f\n", x, y, r);
+    		    pickUpBall(state, theta, r);
+    		    dropBall(state);
+    		}
+    		pthread_mutex_unlock(&command_mutex);
+	    } else {
+            if (state->goToHome == 1) {
+                pthread_mutex_lock(&command_mutex);
 
-		if(!isBall) {
-		    // No valid balls left
-		    printf("No more valid balls\n");
-		    state->gettingBalls = 0;
-		    stop_getting_balls();
-		}
-		else {
-		    if(x < 0 && y > 0){
-			theta += M_PI;
-		    }
-		    if(x < 0 && y < 0){
-			theta -= M_PI;
-		    }
-		    printf("x: %f, y: %f, r: %f\n", x, y, r);
-		    pickUpBall(state, theta, r);
-		    dropBall(state);
-		}
-		pthread_mutex_unlock(&command_mutex);
+                sendCommand(state, 3.1, 0, 0, 0, 0.3, 0.7);
 
-	    }
-	    if (state->goToHome == 1) {
-		pthread_mutex_lock(&command_mutex);
+                pthread_mutex_unlock(&command_mutex);
+                state->goToHome = 0;   
+            }
 
-		sendCommand(state, 3.1, 0, 0, 0, 0.3, 0.7);
+            if (state->goToPoint == 1) {
+                pthread_mutex_lock(&command_mutex);
 
-		pthread_mutex_unlock(&command_mutex);
-		state->goToHome = 0;   
-	    }
+                x = state->pointX;
+                y = state->pointY;
+
+                double r = calc_dist(x,y,0,0);
+                double theta = atan(y/x);
+
+                if(x < 0 && y > 0){
+                    theta += M_PI;
+                }
+
+                if(x < 0 && y < 0){
+                    theta -= M_PI;
+                }
+
+                if (r <= MAX_RADIUS) {
+                    pickUpBall(state, theta, r);
+                }
+
+                pthread_mutex_unlock(&command_mutex);
+                state->goToPoint = 0;   
+            }
+        }
+	    
 	}
 	return NULL;
 }
@@ -749,6 +793,8 @@ int main(int argc, char **argv)
     end_cmd = 0;
     state_t *state = malloc(sizeof(state_t));
     state->gettingBalls = 0;
+    state->goToHome = 0;
+    state->goToPoint = 0;
     state->lcm = lcm_create(NULL);
     state->command_channel = getopt_get_string(gopt, "command-channel");
 	//state->command_mail_channel = getopt_get_string(gopt, "command-mail-channel");

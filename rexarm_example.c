@@ -34,7 +34,7 @@
 #define MAX_RADIUS 34
 #define MAX_CMD_DUR 3.0
 #define UPDATE_INTERVAL 0.5
-#define MOVING_DIFF 1.0
+#define MOVING_DIFF 0.3
 
 typedef struct state state_t;
 struct state
@@ -555,7 +555,7 @@ int notMoving(state_t * state, double x, double y) {
     int notMove = 0;
     for(int i = 0; i < state->old_num_balls; ++i) {
 	if(calc_dist(state->old_balls[i].x,
-		    state->old_balls[i].y,x,y) < MOVING_DIFF) {
+		    state->old_balls[i].y,x,-y) < MOVING_DIFF) {
 	    notMove = 1;
 	    break;
 	}

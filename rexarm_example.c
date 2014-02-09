@@ -573,12 +573,17 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
     double cur_dist;
 
     int positivey = 0;
+    int negativey = 0;
     for(int i = 0; i < num_balls; i++){
 	x = state->balls[i].x;
 	y = -1 * state->balls[i].y;
 	r = calc_dist(x,y,0,0);
 	if(y >= 0 && !ballNotInBounds(x,y,r) && notMoving(state,x,y)){
 	    positivey = 1;
+	}else if(y < 0 && !ballNotInBounds(x,y,r) && notMoving(state,x,y)){
+	    negativey = 1;
+	}
+	if(positivey && negativey){
 	    break;
 	}
     }
@@ -586,7 +591,8 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
     for(int i = 0; i < num_balls; ++i) {
 	x = state->balls[i].x;
 	y = -1 * state->balls[i].y;
-	if(positivey && y < 0){
+	if((negativey && y >= 0 && state->cur_y < 0) || (positivey && y < 0 && state->cur_y >= 0)){
+		printf("######negy: %i, posy: %i ,x: %f, y: %f, claw: %g\n",negativey, positivey, x, y, cur_positions[3]);
 		continue;
 	}
 	r = calc_dist(x,y,0,0);

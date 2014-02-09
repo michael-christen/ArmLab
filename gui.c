@@ -956,7 +956,7 @@ void* render_status(void* data){
 		for(int i = 0; i < num_balls; ++i) {
 		    if(balls_valid[i]){
 		        sprintf(ballText +strlen(ballText), " %d ( %f, %f)\n", i,
-			        balls[i].x, balls[i].y);
+			        balls[i].x, -balls[i].y);
 			}
 		}
 		//pthread_mutex_lock(&ball_mutex);

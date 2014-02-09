@@ -34,6 +34,7 @@
 #define MAX_RADIUS 34
 #define MAX_CMD_DUR 3.0
 #define UPDATE_INTERVAL 0.5
+#define MOVING_DIFF 1.0
 
 typedef struct state state_t;
 struct state
@@ -55,8 +56,9 @@ struct state
     pthread_t driver_thread;
     
     ball_info_t balls[MAX_NUM_BALLS];
+    ball_info_t old_balls[MAX_NUM_BALLS];
 
-    volatile int gettingBalls, num_balls, goToHome, goToPoint;
+    volatile int gettingBalls, old_num_balls, num_balls, goToHome, goToPoint;
     double cur_x, cur_y;
     double pointX, pointY;
 };
@@ -417,8 +419,16 @@ static void ball_positions_handler( const lcm_recv_buf_t *rbuf,
                            void *user)
 {
     state_t* state = user;
-    state->num_balls = msg->len;
     int i;
+    //Update prev ball positions
+    state->old_num_balls = state->num_balls;
+    for (i = 0; i < state->num_balls; ++i) {
+	state->old_balls[i].x = state->balls[i].x;
+	state->old_balls[i].y = state->balls[i].y;
+	state->old_balls[i].num_pxs = state->balls[i].num_pxs;
+    }
+
+    state->num_balls = msg->len;
     for (i = 0; i < state->num_balls; i++) {
         state->balls[i].x = msg->balls[i].x;
         state->balls[i].y = msg->balls[i].y;
@@ -536,6 +546,23 @@ void* lcm_handle_loop(void *data)
 	pickUpBall(state, theta, r);
 }*/
 
+int ballNotInBounds(double x, double y, double r) {
+    return (r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 
+	    || (y > -9 && y < 9 && x < -13));
+}
+
+int notMoving(state_t * state, double x, double y) {
+    int notMove = 0;
+    for(int i = 0; i < state->old_num_balls; ++i) {
+	if(calc_dist(state->old_balls[i].x,
+		    state->old_balls[i].y,x,y) < MOVING_DIFF) {
+	    notMove = 1;
+	    break;
+	}
+    }
+    return notMove;
+}
+
 int getNextBall(state_t * state, ball_info_t * rtnBall) {
     int num_balls = state->num_balls;
     double x, y, r;
@@ -545,16 +572,16 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
     double min_dist = calc_dist(state->cur_x, state->cur_y, max_ball.x, max_ball.y);
     double cur_dist;
 
-	int positivey = 0;
-	for(int i = 0; i < num_balls; i++){
-		x = state->balls[i].x;
-		y = -1 * state->balls[i].y;
-		r = calc_dist(x,y,0,0);
-		if(y >= 0 && !(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < -13))){
-			positivey = 1;
-			break;
-		}
+    int positivey = 0;
+    for(int i = 0; i < num_balls; i++){
+	x = state->balls[i].x;
+	y = -1 * state->balls[i].y;
+	r = calc_dist(x,y,0,0);
+	if(y >= 0 && !ballNotInBounds(x,y,r) && notMoving(state,x,y)){
+	    positivey = 1;
+	    break;
 	}
+    }
 
     for(int i = 0; i < num_balls; ++i) {
 	x = state->balls[i].x;
@@ -563,7 +590,7 @@ int getNextBall(state_t * state, ball_info_t * rtnBall) {
 		continue;
 	}
 	r = calc_dist(x,y,0,0);
-	if (!(r > MAX_RADIUS || fabs(x > 29.5) || fabs(y) > 29.5 || (y > -9 && y < 9 && x < -13))) {
+	if (!ballNotInBounds(x,y,r) && notMoving(state,x,y)) {
 	    cur_dist = calc_dist(state->cur_x, state->cur_y,
 		    state->balls[i].x, state->balls[i].y);
 	    if( cur_dist < min_dist || !isBall) {
@@ -785,6 +812,8 @@ int main(int argc, char **argv)
     state->lcm_channel = "lcm-channel";
     state->cur_x = 0;
     state->cur_y = 0;
+
+    state->num_balls = 0;
 
     global_cmds.len = NUM_SERVOS;
     global_cmds.commands = malloc(sizeof(dynamixel_command_t)*NUM_SERVOS);

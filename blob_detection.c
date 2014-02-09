@@ -143,11 +143,12 @@ int blob_detection(image_u32_t *im, ball_t *final_balls) {
 	    id = im->stride*y + x;
 	    px = im->buf[id];
 	    if(is_ball(px)){
-		//For some strange reason this isn't always working
+		/*
 		if(!links[labels[id]]) {
 		    printf("id: %d, labels[id]: %d, links[labels[id]]: %d\n",
 			    id, labels[id], links[labels[id]]);
 		}
+		*/
 		assert(links[labels[id]]);
 		labels[id] = set_find(links[labels[id]])->val;
 		balls[labels[id]].x += x;

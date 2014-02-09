@@ -645,11 +645,11 @@ vx_object_t* renderClaw(int above, Arm_t* arm){
 
 void renderBalls(int above, vx_world_t* world) {
     //pthread_mutex_unlock(&ball_mutex);
-    ball_t currentBall;
     vx_object_t *ball;
     int i;
     for(i=0; i < num_balls; ++i) {
 	/*
+	        ball_t currentBall;
 		currentBall.x = 5 + i*5; 
 		currentBall.y = 5;
 		currentBall.num_px = 150;
@@ -965,7 +965,6 @@ void* render_status(void* data){
 		vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_LEFT, textb));
 
 		vx_object_t* status;
-		vx_object_t* time;
 		double time_elapsed;
 
 		if(getting_balls){
@@ -992,6 +991,7 @@ void* render_status(void* data){
 
 		/*if(started){
 			
+		        vx_object_t* time;
 			time = vxo_text_create(VXO_TEXT_ANCHOR_TOP_RIGHT, timeText);
 			vx_buffer_add_back(vx_world_get_buffer(new_world, "text"), vxo_pix_coords(VX_ORIGIN_TOP_RIGHT, time));
 		}*/
